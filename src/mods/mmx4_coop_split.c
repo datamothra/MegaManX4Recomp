@@ -24,10 +24,12 @@ static unsigned frost_camera_call;
 static uint32_t background_actor,background_dx;
 static unsigned background_parallax;
 static unsigned train_scene_call;
+static unsigned intro_explosion_call,intro_shake_call,intro_explosion_published;
 
 int mmx4_coop_split_snapshot_ready(void) {
     return !(scanning || bounds_call || supplemental || spatial_call || mushroom_camera_call || destructible_camera_call || lift_camera_call || jungle_background_call || frost_camera_call || background_call ||
-        background_actor || background_dx || background_parallax || train_scene_call);
+        background_actor || background_dx || background_parallax || train_scene_call ||
+        intro_explosion_call || intro_shake_call || intro_explosion_published);
 }
 int mmx4_coop_split_snapshot(Mmx4SnapshotIO *s) {
     /* Camera, placement and controller bytes use the guest-memory section. */
@@ -156,6 +158,7 @@ void mmx4_coop_split_reset(void) {
     for(unsigned offset=0;offset<STATE_BYTES;offset+=4)psx_mod_write_word(state+offset,0);
     scanning=bounds_call=supplemental=spatial_call=mushroom_camera_call=destructible_camera_call=lift_camera_call=jungle_background_call=background_call=0;
     background_actor=background_dx=background_parallax=frost_camera_call=train_scene_call=0;
+    intro_explosion_call=intro_shake_call=intro_explosion_published=0;
 }
 int mmx4_coop_split_activate(void) {
     state=mmx4_coop_split_views()?psx_mod_memory_alloc(STATE_BYTES,4):0;
@@ -201,6 +204,118 @@ static void initialize_cameras(void) {
     copy_camera(state+16u+CAMERA_BYTES,CAMERA);
     psx_mod_write_word(state,1);
 }
+static void cannon_laser_origin(CPUState *cpu,uint32_t address) {
+    unsigned type=address==0x8009D104u?20u:36u;
+    unsigned value_register=address==0x800A3C00u?3u:2u;
+    unsigned stage=psx_mod_read_byte(MMX4_PLAY+12);
+    uint32_t beam=cpu->gpr[16],parent=cpu->gpr[17];
+    if(!available() || (stage!=7 && stage!=8) || beam<0x8013F328u ||
+       beam>=0x801406A8u || (beam-0x8013F328u)%0x9Cu ||
+       !psx_mod_read_byte(beam) || psx_mod_read_byte(beam+1)!=type ||
+       psx_mod_read_word(beam+0x7C)!=parent || parent<0x8013BED0u ||
+       parent>=0x8013DC10u || (parent-0x8013BED0u)%0x9Cu ||
+       !psx_mod_read_byte(parent))return;
+    Mmx4CoopViewActor actors[2];mmx4_coop_split_actors(actors);
+    if(!actors[0].active && !actors[1].active)return;
+    unsigned owner=mmx4_coop_view_nearest(actors,
+        (int16_t)psx_mod_read_half(parent+10),(int16_t)psx_mod_read_half(parent+14),0);
+    initialize_cameras();
+    /* Native9D100 and A3B04 clamp two cannon beam families against CAMERA.x,
+     * dragging distant emitters into P1's view. A3BFC also derives a culling
+     * extent from that origin. Supply the actual emitter's nearest view to
+     * each loaded value; native collision, animation and lifetime run once,
+     * retaining authored world coordinates in either facing direction. */
+    cpu->gpr[value_register]=(uint32_t)(int32_t)(int16_t)
+        psx_mod_read_half(state+16u+owner*CAMERA_BYTES+10u);
+    psx_mod_counter_add("mmx4.coop.cannon-laser-view-origins",1);
+}
+static int intro_effect_near(uint32_t camera,int x,int y,int half_height) {
+    int dx=x-((int16_t)psx_mod_read_half(camera+10)+160);
+    int dy=y-((int16_t)psx_mod_read_half(camera+14)+128);
+    int margin=psx_mod_widescreen_x_margin();
+    return dx>-320-2*margin && dx<320+2*margin && dy>-240-half_height && dy<240+half_height;
+}
+static void copy_shake_command(uint32_t destination,uint32_t source,unsigned axis) {
+    unsigned bit=axis?1u:16u;
+    static const unsigned offsets[]={0x36,0x3A,0x3C,0x3E,0x45};
+    psx_mod_write_half(destination+0x34,(uint16_t)(psx_mod_read_half(destination+0x34)|bit));
+    for(unsigned i=0;i<5;++i)
+        psx_mod_write_byte(destination+offsets[i]+axis,psx_mod_read_byte(source+offsets[i]+axis));
+}
+static int intro_shake(CPUState *cpu,uint32_t address) {
+    if(intro_shake_call || !state || !mmx4_coop_split_views() || !mmx4_coop_ready() ||
+       psx_mod_local_view_scope() || psx_mod_read_byte(MMX4_PLAY)!=6 ||
+       psx_mod_read_byte(MMX4_PLAY+12))return 0;
+    uint32_t caller=cpu->gpr[31];
+    unsigned explosion=caller==0x800BBD08u || caller==0x800BBD50u || caller==0x800BBE58u;
+    unsigned impact=caller==0x800BE6ACu || caller==0x800BE778u ||
+        caller==0x800BEF58u || caller==0x800BF104u || caller==0x800BF2D0u ||
+        caller==0x800C0750u || caller==0x800C07F8u;
+    if(!explosion && !impact)return 0;
+    int x=(int16_t)psx_mod_read_half(CAMERA+10)+160;
+    int y=(int16_t)psx_mod_read_half(CAMERA+14)+128;
+    if(impact) {
+        uint32_t actor=cpu->gpr[16];
+        if(actor<0x80010000u || actor>0x801FF000u || !psx_mod_read_byte(actor))return 0;
+        x=(int16_t)psx_mod_read_half(actor+10);y=(int16_t)psx_mod_read_half(actor+14);
+    }
+    /* Subtype0 issues shake for the complete closing wall, whose authored
+     * rows extend432px below its emitter. Test that full footprint, or a
+     * hero at the shaft floor is wrongly considered distant from the top. */
+    int half_height=(caller==0x800C0750u || caller==0x800C07F8u)?216:0;
+    y+=half_height;
+    initialize_cameras();
+    unsigned axis=address==0x80028BACu;
+    unsigned bit=axis?1u:16u;
+    const unsigned offsets[]={0x36,0x3A,0x3C,0x3E,0x45};
+    uint8_t previous[5];
+    unsigned flags=psx_mod_read_half(CAMERA+0x34);
+    for(unsigned i=0;i<5;++i)previous[i]=psx_mod_read_byte(CAMERA+offsets[i]+axis);
+    intro_shake_call=1;
+    uint32_t result=mmx4_coop_call(cpu,address,cpu->gpr[4],cpu->gpr[5]);
+    intro_shake_call=0;
+    for(unsigned seat=0;seat<2;++seat) {
+        uint32_t shadow=state+16u+seat*CAMERA_BYTES;
+        if(!mmx4_coop_alive(seat) || !intro_effect_near(shadow,x,y,half_height))continue;
+        copy_shake_command(shadow,CAMERA,axis);
+        if(intro_explosion_call)intro_explosion_published|=1u<<(seat*2u+axis);
+        psx_mod_counter_add(seat?"mmx4.coop.p2-intro-shakes":"mmx4.coop.p1-intro-shakes",1);
+    }
+    /* The world event runs once. Only its native shake command is published;
+     * room limits, camera origins and the other shake axis remain personal. */
+    if(!intro_effect_near(CAMERA,x,y,half_height)) {
+        psx_mod_write_half(CAMERA+0x34,(uint16_t)((psx_mod_read_half(CAMERA+0x34)&~bit)|(flags&bit)));
+        for(unsigned i=0;i<5;++i)psx_mod_write_byte(CAMERA+offsets[i]+axis,previous[i]);
+    }
+    return mmx4_coop_finish(cpu,result);
+}
+static int intro_explosions(CPUState *cpu,uint32_t address) {
+    if(intro_explosion_call || !available() || mmx4_coop_projected() ||
+       psx_mod_read_byte(MMX4_PLAY+12) || psx_mod_read_byte(MMX4_PLAY+13))return 0;
+    uint32_t actor=cpu->gpr[4];
+    if(actor<0x80142F98u || actor>=0x80143598u || (actor-0x80142F98u)%0x30u ||
+       psx_mod_read_byte(actor+1)!=28)return 0;
+    Mmx4CoopViewActor actors[2];mmx4_coop_split_actors(actors);
+    unsigned owner=!actors[0].active || (actors[1].active && actors[1].world_x>actors[0].world_x);
+    uint8_t canonical[CAMERA_BYTES];
+    int own=owner && mmx4_coop_split_scene_camera_begin(owner,canonical);
+    unsigned canonical_owner=psx_mod_read_word(state+8u)==2u;
+    intro_explosion_published=0;intro_explosion_call=1;
+    uint32_t result=mmx4_coop_call(cpu,address,actor,cpu->gpr[5]);
+    intro_explosion_call=0;
+    if(own) {
+        mmx4_coop_split_scene_camera_end(owner,canonical,0);
+        /* Restoring P1's camera must retain this event's newly published
+         * nearby shake. Copy only commands actually issued this tick, or an
+         * older shadow timer would keep restarting after every scope. The
+         * canonical camera may also belong to a surviving P2. */
+        for(unsigned axis=0;axis<2;++axis)
+            if(intro_explosion_published&(1u<<(canonical_owner*2u+axis)))
+                copy_shake_command(CAMERA,state+16u+canonical_owner*CAMERA_BYTES,axis);
+    }
+    intro_explosion_published=0;
+    return mmx4_coop_finish(cpu,result);
+}
 static uint32_t byte_word(const uint8_t *bytes,unsigned offset) {
     return (uint32_t)bytes[offset]|(uint32_t)bytes[offset+1]<<8|
         (uint32_t)bytes[offset+2]<<16|(uint32_t)bytes[offset+3]<<24;
@@ -225,6 +340,28 @@ static void train_panorama_wrap(uint32_t camera) {
         psx_mod_write_half(camera+10,(uint16_t)(first*256u));
     else if(first && x<=(int)(first-1u)*256)
         psx_mod_write_half(camera+10,(uint16_t)(last*256u));
+}
+static void mushroom_midboss_camera_unlock(CPUState *cpu,uint32_t address) {
+    uint32_t actor=cpu->gpr[address==0x8005D7C4u?18:4];
+    unsigned phase=address==0x8005D7C4u?2u:3u;
+    if(!available() || !psx_mod_read_word(state) ||
+       psx_mod_read_byte(MMX4_PLAY+12)!=3 || psx_mod_read_byte(MMX4_PLAY+13) ||
+       actor<0x8013BED0u || actor>=0x8013DC10u || (actor-0x8013BED0u)%0x9Cu ||
+       !psx_mod_read_byte(actor) || psx_mod_read_byte(actor+1)!=33 ||
+       psx_mod_read_byte(actor+4)!=phase || psx_mod_read_byte(actor+0x5C) ||
+       cpu->gpr[2]<4352u || cpu->gpr[2]>4608u)return;
+    /* Tentoroid's original death opens the left room limit two pixels per
+     * tick at5D7C4, then finishes at4352 at5D80C. Publish those same target
+     * writes to saved views still in its4608 enclosure. Otherwise P2 stays
+     * clamped at4616 after a native kill while living P1 can leave normally.
+     * Each camera keeps its own origin and native limit easing. */
+    for(unsigned seat=0;seat<2;++seat) {
+        uint32_t shadow=state+16u+seat*CAMERA_BYTES;
+        unsigned minimum=psx_mod_read_half(shadow+0x26);
+        if(psx_mod_read_half(shadow+0x24)!=4608 || minimum<4352 || minimum>4608)continue;
+        psx_mod_write_half(shadow+0x26,(uint16_t)cpu->gpr[2]);
+        psx_mod_counter_add("mmx4.coop.split-mushroom-camera-unlocks",1);
+    }
 }
 static void owl_midboss_camera_unlock(CPUState *cpu,uint32_t address) {
     (void)address;
@@ -624,6 +761,16 @@ int mmx4_coop_split_scene_camera_begin(unsigned owner,uint8_t canonical[0xFC]) {
     initialize_cameras();read_bytes(CAMERA,canonical,CAMERA_BYTES);
     copy_camera(CAMERA,state+16u+owner*CAMERA_BYTES);
     return 1;
+}
+void mmx4_coop_split_commit_scene_camera(unsigned owner) {
+    if(!state || owner>1 || !mmx4_coop_split_views() || !mmx4_coop_ready() ||
+       psx_mod_local_view_scope())return;
+    initialize_cameras();
+    /* The native scene has admitted its owner, even if WARNING has already
+     * frozen ordinary camera follow. Begin its shared pan in that real view. */
+    copy_camera(CAMERA,state+16u+owner*CAMERA_BYTES);
+    psx_mod_write_word(state+8u,owner+1u);
+    psx_mod_counter_add("mmx4.coop.intro-entry-camera-commits",1);
 }
 void mmx4_coop_split_scene_camera_end(unsigned owner,const uint8_t canonical[0xFC],int committed) {
     copy_camera(state+16u+owner*CAMERA_BYTES,CAMERA);
@@ -1126,6 +1273,12 @@ static int frost_ice_range(CPUState *cpu,uint32_t address) {
     return mmx4_coop_finish(cpu,0);
 }
 PSX_MOD_CONSTRUCTOR(mmx4_register_coop_split) {
+    psx_mod_register_instruction_plugin(COOP_ID,0x8009D104u,0x8623000Au,cannon_laser_origin);
+    psx_mod_register_instruction_plugin(COOP_ID,0x800A3B08u,0x8623000Au,cannon_laser_origin);
+    psx_mod_register_instruction_plugin(COOP_ID,0x800A3C00u,0x8622000Au,cannon_laser_origin);
+    psx_mod_register_function_filter_plugin(COOP_ID,0x80028B68u,intro_shake);
+    psx_mod_register_function_filter_plugin(COOP_ID,0x80028BACu,intro_shake);
+    psx_mod_register_function_filter_plugin(COOP_ID,0x800BBC14u,intro_explosions);
     psx_mod_register_function_filter_plugin(COOP_ID,0x800B8AF8u,frost_stage_camera);
     psx_mod_register_instruction_plugin(COOP_ID,0x800B8D64u,0xA42219D4u,frost_shaft_camera_expand);
     psx_mod_register_function_filter_plugin(COOP_ID,0x800B9E54u,frost_ice_range);
@@ -1148,6 +1301,8 @@ PSX_MOD_CONSTRUCTOR(mmx4_register_coop_split) {
     psx_mod_register_function_filter_plugin(COOP_ID,0x80028E24u,scan_players);
     psx_mod_register_function_filter_plugin(COOP_ID,0x800293E8u,placement_allocate);
     psx_mod_register_instruction_plugin(COOP_ID,0x80029284u,0xA2620000u,placement_spawned);
+    psx_mod_register_instruction_plugin(COOP_ID,0x8005D7C4u,0xA42219D6u,mushroom_midboss_camera_unlock);
+    psx_mod_register_instruction_plugin(COOP_ID,0x8005D80Cu,0xA42219D6u,mushroom_midboss_camera_unlock);
     psx_mod_register_instruction_plugin(COOP_ID,0x80089204u,0xA42219D4u,owl_midboss_camera_unlock);
     psx_mod_register_function_filter_plugin(COOP_ID,0x8002B1E8u,actor_bounds);
     psx_mod_register_function_filter_plugin(COOP_ID,0x8002B160u,actor_bounds);

@@ -119,6 +119,10 @@ void mmx4_coop_menu_assets(CPUState *cpu,unsigned seat) {
     if(psx_mod_read_byte(0x801754A4u)==2 && psx_mod_read_byte(0x801754A5u)>=2)
         ++late_menu_assets;
 }
+static unsigned scene_camera_commits,scene_camera_owner;
+void mmx4_coop_split_commit_scene_camera(unsigned owner) {
+    ++scene_camera_commits;scene_camera_owner=owner;
+}
 int mmx4_coop_split_scene_camera_begin(unsigned owner,uint8_t canonical[0xFC]) {
     (void)owner;(void)canonical;return 0;
 }
@@ -377,8 +381,10 @@ uint32_t mmx4_coop_call(CPUState *cpu,uint32_t address,uint32_t a0,uint32_t a1) 
                     psx_mod_write_byte(MMX4_PLAYER+0x5C,(uint8_t)(hp+1));
                 }else psx_mod_write_byte(menu+5,1);
             }else if(sub==5 && (edge&0x800))psx_mod_write_byte(menu+5,2);
-            else if(edge==0x40 && (sub==6 || (sub==2 && psx_mod_read_byte(menu+0x14)==13)))
+            else if(edge==0x40 && (sub==6 || (sub==2 && psx_mod_read_byte(menu+0x14)==13))) {
                 psx_mod_write_byte(menu+4,2);
+                if(sub==2) {psx_mod_write_byte(menu+5,0);psx_mod_write_word(menu+0x30,1);}
+            }
             else if(edge==0x40 && sub==2 && psx_mod_read_byte(menu+0x14)==14)
                 psx_mod_write_byte(menu+5,5);
             else if(edge==0x40 && sub==1)psx_mod_write_byte(menu+5,psx_mod_read_byte(menu+0x14)==12?4:3);
@@ -407,7 +413,7 @@ uint32_t mmx4_coop_call(CPUState *cpu,uint32_t address,uint32_t a0,uint32_t a1) 
         }
         break;
     case 0x80031064:
-        if(personal_model) {
+        if(personal_model && !psx_mod_read_word(0x801754D0u)) {
             psx_mod_write_byte(MMX4_PLAYER+0xBE,1);
             mmx4_coop_call(cpu,0x80021158u,0,0);
         }
@@ -522,6 +528,13 @@ uint32_t mmx4_coop_call(CPUState *cpu,uint32_t address,uint32_t a0,uint32_t a1) 
     case 0x800D9218:
         ++scene_calls;observed_campaign=psx_mod_read_byte(MMX4_PLAY+0x43);
         psx_mod_write_word(a0+0x18,psx_mod_read_word(MMX4_PLAYER+8));
+        break;
+    case 0x800D9C84:
+        ++scene_calls;observed_campaign=psx_mod_read_byte(MMX4_PLAY+0x43);
+        if((int16_t)psx_mod_read_half(MMX4_PLAYER+10)>=7009) {
+            mmx4_coop_call(cpu,0x80036AE4u,0x14,0);
+            psx_mod_write_byte(a0,0);
+        }
         break;
     case 0x800D2A38:
         ++scene_calls;observed_campaign=psx_mod_read_byte(MMX4_PLAY+0x43);
@@ -1121,12 +1134,32 @@ static int simultaneous_menu_ownership(void) {
     inputs[0]=0x40;mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);
     CHECK(personal_menu[0].native[4]==1 && personal_active && !world_calls);
     CHECK((second_inventory.etanks[0]&127u)==energy-1);
-    /* Guest Quit/escape and dead-seat input cannot change campaign flow. */
+    /* P2 opens the shared Quit frontend; native Escape eligibility is shared. */
     reset();simultaneous_menus=separate_etanks=personal_active=personal_initialized=menu_active=1;
     personal_eligible=3;personal_model=1;psx_mod_write_byte(PLAY+1,2);
     for(unsigned seat=0;seat<2;++seat)personal_menu[seat].native[4]=1;
     inputs[1]=SELECT;mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);
-    CHECK(personal_menu[1].native[5]!=6);
+    CHECK(personal_menu[0].native[5]==6 && personal_modal_owner==1);
+    CHECK(personal_menu[1].native[5]!=6 && !projected);
+    {
+        Mmx4SnapshotIO count={NULL,NULL,0,0,MMX4_SNAPSHOT_COUNT,1};
+        CHECK(mmx4_coop_lifecycle_snapshot(&count));
+        uint8_t *saved=malloc(count.pos);CHECK(saved);
+        Mmx4SnapshotIO io={saved,NULL,count.pos,0,MMX4_SNAPSHOT_WRITE,1};
+        CHECK(mmx4_coop_lifecycle_snapshot(&io));
+        uint32_t digest=mmx4_coop_lifecycle_digest(1);
+        personal_modal_owner=0;CHECK(digest!=mmx4_coop_lifecycle_digest(1));
+        io=(Mmx4SnapshotIO){NULL,saved,count.pos,0,MMX4_SNAPSHOT_READ,1};
+        CHECK(mmx4_coop_lifecycle_snapshot(&io) && personal_modal_owner==1);
+        CHECK(digest==mmx4_coop_lifecycle_digest(1));free(saved);
+    }
+    /* P1 cannot confirm P2's popup, including while both menus are visible. */
+    inputs[0]=0x40;inputs[1]=0;mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);
+    CHECK(personal_menu[0].native[4]==1 && personal_active);
+    inputs[0]=0;inputs[1]=0x40;mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);
+    CHECK(personal_menu[0].native[4]==2 && !projected);
+    personal_menu[0].native[4]=1;personal_menu[0].native[5]=0;
+    inputs[0]=0;
     inputs[1]=0;mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);
     personal_menu[1].native[0x14]=13;inputs[1]=0x40;
     mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);CHECK(!p2[0x93]);
@@ -1147,6 +1180,27 @@ static int simultaneous_menu_ownership(void) {
     mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);CHECK(personal_active);
     inputs[0]=0;inputs[1]=START;mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);
     CHECK(!personal_active && !psx_mod_read_byte(PLAYER+0xBE) && p2[0xBE]==1 && world_calls==1);
+    /* P2 Escape uses the canonical transition even with P1 dead. Retail
+     * availability is mirrored and the other personal menu cannot exit twice. */
+    for(unsigned eligible=0;eligible<2;++eligible)for(unsigned dead=0;dead<2;++dead) {
+        reset();simultaneous_menus=separate_etanks=personal_active=personal_initialized=menu_active=1;
+        personal_eligible=dead?2:3;personal_model=1;psx_mod_write_byte(PLAY+1,2);
+        for(unsigned seat=0;seat<2;++seat) {
+            personal_menu[seat].native[4]=1;personal_menu[seat].native[5]=2;
+        }
+        personal_menu[0].native[0x23]=(uint8_t)eligible;
+        personal_menu[1].native[0x14]=13;
+        inputs[1]=0x40;mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);
+        CHECK(personal_menu[1].native[0x23]==eligible && !projected);
+        CHECK(personal_menu[0].native[4]==(eligible?2:1));
+        CHECK(personal_menu[0].native[0x30]==eligible && !world_calls);
+        CHECK(!personal_menu[1].native[0x30]);
+        CHECK(!psx_mod_read_byte(PLAYER+0xBE) && !p2[0xBE]);
+        if(eligible) {
+            inputs[1]=0;mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);
+            CHECK(!psx_mod_read_byte(PLAYER+0xBE) && !p2[0xBE] && !world_calls);
+        }
+    }
     simultaneous_menus_option=0;private_etanks_option=0;
     reset();return 0;
 }
@@ -2076,7 +2130,7 @@ int main(void) {
         }
         psx_mod_write_word(PLAY,6);psx_mod_write_byte(PLAY+1,2);
         menu_active=1;menu_owner=1;inputs[1]=SELECT;menu_previous[1]=0;
-        mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);CHECK(!observed_menu_select);
+        mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);CHECK(observed_menu_select==SELECT);
         menu_owner=0;inputs[0]=SELECT;menu_previous[0]=0;
         mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);CHECK(observed_menu_select==SELECT);
     }
@@ -3343,6 +3397,34 @@ int main(void) {
         CHECK(observed_campaign==campaign && psx_mod_read_half(PLAYER+10)==128);
         CHECK(!projected && mmx4_coop_lifecycle_snapshot_ready());
       }
+    for(unsigned owner=0;owner<2;++owner)for(unsigned dead=0;dead<2;++dead) {
+        reset();const uint32_t actor=0x80169CB8u;
+        psx_mod_write_byte(PLAY+12,8);psx_mod_write_byte(actor,1);
+        psx_mod_write_byte(actor+1,3);psx_mod_write_half(PLAYER+10,owner?6464:7010);
+        put32(p2+8,(owner?7010u:6464u)<<16);
+        if(dead) {
+            if(owner) {psx_mod_write_byte(PLAYER+4,3);psx_mod_write_byte(PLAYER+0x5C,0);}
+            else {p2[4]=3;p2[0x5C]=0;}
+        }
+        mmx4_coop_call(&cpu,0x800D9C84u,actor,0);
+        CHECK(scene_calls==1 && script_active && script_owner==owner && !projected);
+        CHECK(!psx_mod_read_byte(actor) && mmx4_coop_lifecycle_snapshot_ready());
+        CHECK(psx_mod_read_half(PLAYER+10)==(owner?6464:7010));
+    }
+    /* Only the inspected Eregion part2 admission commits a saved camera,
+     * including WARNING's freeze; unrelated callers and sections do not. */
+    for(unsigned owner=0;owner<2;++owner)for(unsigned excluded=0;excluded<4;++excluded) {
+        reset();psx_mod_write_byte(PLAY+13,1);psx_mod_write_byte(PLAY+0x10,1);
+        cpu.gpr[31]=excluded==1?0x8004954Cu:0x80049548u;
+        if(excluded==2)psx_mod_write_byte(PLAY+13,0);
+        if(excluded==3)psx_mod_write_byte(PLAY+12,1);
+        unsigned count=scene_camera_commits;
+        if(owner)mmx4_coop_enter_second();
+        mmx4_coop_call(&cpu,0x80036AE4u,0x15,0);
+        if(owner)mmx4_coop_leave_second();
+        CHECK(scene_camera_commits==count+(excluded==0));
+        if(!excluded)CHECK(scene_camera_owner==owner);
+    }
     CHECK(!colonel_palette_refreshes(&cpu));
     CHECK(!survivor_palette_animation(&cpu));
     CHECK(!marine_chaser_dismount());

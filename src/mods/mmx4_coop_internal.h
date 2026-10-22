@@ -64,6 +64,7 @@ void mmx4_coop_split_camera_prepare(unsigned owner);
 /* Native Dragoon refight phase2->3 releases the shared horizontal enclosure. */
 void mmx4_coop_split_dragoon_camera_release(uint32_t actor);
 int mmx4_coop_split_scene_camera_begin(unsigned owner,uint8_t canonical[0xFC]);
+void mmx4_coop_split_commit_scene_camera(unsigned owner);
 void mmx4_coop_split_scene_camera_end(unsigned owner,const uint8_t canonical[0xFC],int committed);
 void mmx4_coop_split_actors(Mmx4CoopViewActor actors[2]);
 int mmx4_coop_split_camera_copy(unsigned seat,uint8_t layers[0xFC]);

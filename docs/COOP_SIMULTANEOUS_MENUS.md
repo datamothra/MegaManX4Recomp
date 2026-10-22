@@ -22,7 +22,7 @@ Both the option and effective E-tank policy are recorded in diagnostics;
 the option enters the native match configuration and source compatibility ID.
 
 Tank use blocks unpause while the partner keeps navigating and confirming
-equipment. Options remains usable, and healing continues behind P1's shared
+equipment. Options remains usable, and healing continues behind the shared
 Options/Quit frontend. Escape and Quit cannot leave the menu during healing.
 Requests on the same frame are deterministic: tank confirmation takes priority
 over resume; simultaneous tank requests start P1's operation first. A second
@@ -31,8 +31,12 @@ Blocked exit and tank requests are consumed, requiring a fresh press after
 completion; holding Start through healing never resumes gameplay afterward.
 
 Dead or withdrawn players cannot use a tank, change equipment or resume.
-Their native menu can still be shown. P1 retains Quit and escape authority;
-its shared Options/Quit frontend blocks P2 interaction and team resume.
+Their native menu can still be shown. Either living player can press Select
+to open the shared Quit frontend and control both native confirmations; the
+other controller cannot confirm or cancel it. Either can select Escape when
+the native cleared-stage rules permit it. Both actions use one shared native
+exit transition, including with P1 dead. Options remains controlled by P1.
+Shared frontends block personal input and team resume.
 Start closes P1's native Options page first; another fresh press is required
 to resume gameplay. Options/Quit pages never draw a partner world sprite.
 Native fades, sound transitions and the resume world update run once.

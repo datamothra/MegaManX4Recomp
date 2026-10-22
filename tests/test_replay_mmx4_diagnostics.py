@@ -42,6 +42,16 @@ class Preparation(unittest.TestCase):
         self.metadata({'netplay':False})
         output,_,_=replay.prepare(self.args)
         self.assertFalse((output/'diagnostic-baseline.pst').exists())
+
+    def test_bundled_bios_is_copied_for_release_startup_verification(self):
+        bios=self.root/'bios';bios.mkdir()
+        (bios/'openbios.bin').write_bytes(b'bundled image')
+        (bios/'OpenBIOS.LICENSE').write_text('redistribution notice')
+        output,_,_=replay.prepare(self.args)
+        self.assertEqual((output/'bios/openbios.bin').read_bytes(),b'bundled image')
+        self.assertEqual((output/'bios/OpenBIOS.LICENSE').read_text(),'redistribution notice')
+        (bios/'openbios.bin').write_bytes(b'changed source')
+        self.assertEqual((output/'bios/openbios.bin').read_bytes(),b'bundled image')
     def test_network_bundle_does_not_launch_as_offline_replay(self):
         self.metadata({'netplay':True,'baseline':'baseline.pst'})
         with self.assertRaisesRegex(ValueError,'Netplay'):replay.prepare(self.args)

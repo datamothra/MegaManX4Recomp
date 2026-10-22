@@ -12,14 +12,17 @@ bindings. The game uses digital PlayStation controls.
 
 Player 1 owns the campaign. Player 2 uses the other character; boss clears and
 permanent upgrades follow P1's campaign. Lives represent team retries. A dead
-partner waits for the team's retry, and P2 cannot quit the campaign.
+partner waits for the team's retry. Either living player can use Select in
+the pause menu to Quit, including P2 while P1 is dead.
 
 Unified cameras are the local default; Local co-op display also offers experimental
 side by side 8:3. HUD layout can be Stacked or Side by side.
 With Independent pause menus enabled (the default), either player's Start/Options
 binding opens both heroes' native menus. Each player manages their own weapons,
 techniques and E-tank energy; either player resumes after healing finishes.
-Gameplay pauses for both players. Only P1 can quit the campaign.
+Gameplay pauses for both players. The player who opens Quit controls its
+two confirmation pages. Either living player can also select Escape when
+the native cleared-stage rules allow it. Options remains controlled by P1.
 
 ## Netplay
 

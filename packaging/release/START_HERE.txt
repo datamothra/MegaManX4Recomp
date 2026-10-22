@@ -47,7 +47,8 @@ CO-OP PUBLIC BETA
   co-op, the host selects these two options under X + Zero Co-op.
 
   Player 1 owns the campaign and permanent upgrades. Boss clears are shared;
-  the lives counter shows team retries. Player 2 cannot quit the campaign.
+  the lives counter shows team retries. Either living player can use Select in
+  the pause menu to Quit, or select Escape in a cleared stage.
 
   Offline co-op supports save states and rewind. F7 opens save states:
   Square saves, Cross loads, and Circle goes back, using your configured

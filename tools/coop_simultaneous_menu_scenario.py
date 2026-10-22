@@ -171,10 +171,14 @@ def simultaneous_menus(s, capture=None):
     r.release()
     assert after>before,('Selected X weapon did not fire after pause',before,after)
     shot('selected-weapon-fired')
-    # Campaign confirmation is shared, with P1's authority. A guest cannot
-    # open Quit; guest Start cannot bypass a confirmation already in progress.
+    # Either seat can open shared Quit; its initiator controls confirmation.
     opened(1);pulse(0xfffe,1)
-    assert r.read(0x801754a5,1)[0]<3,'Guest opened campaign Quit'
+    s.wait('p2-quit-modal',lambda q:q['menu']==[1,6],20)
+    frames(50);shot('p2-quit-modal')
+    pulse(0xbfff,0)
+    assert list(r.read(0x801721c0,2))==[6,2] and r.read(0x801754a5,1)[0]==6
+    pulse(0xbfff,1)
+    s.wait('p2-quit-cancelled',lambda q:q['menu'][0]==1 and q['menu'][1]<3,20)
     pulse(0xfffe,0)
     s.wait('campaign-quit-modal',lambda q:q['menu']==[1,6],20)
     frames(50);shot('campaign-quit-modal')
@@ -215,7 +219,7 @@ def simultaneous_menus(s, capture=None):
         partner_equipment_during_healing=True,held_start_not_queued=True,
         either_player_resumes=True,required_private_etanks=True,paused_snapshot_restored=snapshot_restored,
         prepared_energy_per_tank=16,prepared_energy_per_seat=32,total_native_healing=48,
-        guest_quit_blocked=True,campaign_confirmation_serialized=True,shared_options_returned=True,surviving_p2_menu=True,
+        p2_quit_confirmation=True,campaign_confirmation_serialized=True,shared_options_returned=True,surviving_p2_menu=True,
         native_weapon_fired_after_resume=True,render_pass=render_after,captures=captures,events=events)
     (s.output/'simultaneous-menu-results.json').write_text(json.dumps(result,indent=2))
     return result

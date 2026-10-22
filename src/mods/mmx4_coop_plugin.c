@@ -781,7 +781,7 @@ static int development_fixture(CPUState *cpu,uint32_t address) {
         /* Only original spawn lists whose bounds have been verified. Frost part2
          * has four pointers at800F417C..800F4188; the last two lead to the
          * late corridor and boss checkpoint (800F3674/800F3698). */
-        if((stage==0 && section==1 && checkpoint<3) ||
+        if((stage==0 && section<=1 && checkpoint<3) ||
            (stage==1 && section==0 && checkpoint<5) ||
            (stage==1 && section==1 && checkpoint<6) ||
            (stage==2 && section==0 && checkpoint<5) ||

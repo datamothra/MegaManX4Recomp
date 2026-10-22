@@ -60,12 +60,14 @@ def personal_menus(s, capture=None):
         canonical = energy()
         open_menu(seat, 'personal-menu-'+str(seat))
         # Only its owner controls the native menu; the partner's Start must
-        # not steal it, and guest Select must not open campaign Quit.
+        # not steal it. Either owner can open and cancel the native Quit popup.
         pulse(0xfff7, seat ^ 1)
         assert list(r.read(0x801721c0, 2)) == [6, 2]
         if seat:
             pulse(0xfffe, seat)
-            assert r.read(0x801754a5, 1)[0] != 6, 'Guest opened Quit'
+            s.wait('p2-native-quit',lambda v:v['menu']==[1,6],10)
+            time.sleep(.8);pulse(0xbfff,seat)
+            s.wait('p2-native-quit-cancelled',lambda v:v['menu'][0]==1 and v['menu'][1]<3,10)
         choices = []
         for _ in range(12):
             selected = r.read(0x801754b4, 1)[0]; choices.append(selected)
@@ -136,7 +138,7 @@ def personal_menus(s, capture=None):
     shot('x-weapon-after-resume')
     assert r.read(r.diagnostic()+0x443, 1)[0] == s.campaign
     result = dict(private_etanks=private, campaign=s.campaign, native_tank_uses=results,
-                  character_menu_flags=True, owner_only_input=True, guest_quit_blocked=True,
+                  character_menu_flags=True, owner_only_input=True, p2_quit_confirmation=True,
                   x_weapon_selection=True, guest_energy_survives_stage_reload=private)
     (s.output/'personal-menu-results.json').write_text(json.dumps(result, indent=2))
     return result

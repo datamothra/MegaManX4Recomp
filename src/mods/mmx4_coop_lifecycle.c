@@ -54,6 +54,8 @@ static unsigned separate_etanks;
 typedef struct { uint8_t native[0x34], original_weapon; } PersonalMenu;
 static PersonalMenu personal_menu[2];
 static unsigned simultaneous_menus, personal_active, personal_initialized, personal_eligible;
+/* Quit is a shared campaign frontend, controlled by its requesting seat. */
+static unsigned personal_modal_owner;
 static unsigned personal_pass, personal_seat, personal_rendering;
 static unsigned stage_known, last_stage, last_section, last_lives;
 static unsigned carry_resources, carry_dead, carry_first_dead, carry_departure, carry_refill;
@@ -105,6 +107,7 @@ int mmx4_coop_lifecycle_snapshot(Mmx4SnapshotIO *s) {
     mmx4_snapshot_fixed(s,simultaneous_menus);
     MMX4_SNAPSHOT_BOOL(s,personal_active);MMX4_SNAPSHOT_BOOL(s,personal_initialized);
     MMX4_SNAPSHOT_FIELD(s,personal_eligible,1,3);
+    MMX4_SNAPSHOT_BOOL(s,personal_modal_owner);
     for(unsigned seat=0;seat<2;++seat) {
         mmx4_snapshot_bytes(s,personal_menu[seat].native,sizeof personal_menu[seat].native);
         MMX4_SNAPSHOT_U8(s,personal_menu[seat].original_weapon);
@@ -267,7 +270,7 @@ static void fresh_game(CPUState *cpu,uint32_t address) {
     flip_guard=0;
     departure_vehicle_active=departure_vehicle_visible=0;
     menu_active=menu_owner=menu_projecting=0;
-    personal_active=personal_initialized=personal_eligible=0;
+    personal_active=personal_initialized=personal_eligible=personal_modal_owner=0;
     personal_pass=personal_seat=personal_rendering=0;
     memset(personal_menu,0,sizeof personal_menu);
     trace_previous.valid=0;
@@ -410,7 +413,7 @@ void mmx4_coop_lifecycle_reset(void) {
      * guard bypasses P2's menu projection and leaves menu_active latched when
      * the unwrapped native menu resumes gameplay. */
     menu_active=0;menu_owner=0;menu_guard=menu_projecting=0;
-    personal_active=personal_initialized=personal_eligible=0;
+    personal_active=personal_initialized=personal_eligible=personal_modal_owner=0;
     personal_pass=personal_seat=personal_rendering=0;
     memset(personal_menu,0,sizeof personal_menu);
 }
@@ -1204,6 +1207,8 @@ static int personal_menu_draw(CPUState *cpu,uint32_t address) {
 static int personal_dead_commit(CPUState *cpu,uint32_t address) {
     (void)address;
     if(!personal_pass || (personal_eligible&(1u<<personal_seat)))return 0;
+    /* Escape's native branch skips equipment installation itself. */
+    if(psx_mod_read_word(MENU+0x30))return 0;
     /* Retail weapon installation rewrites animation state. Never apply it
      * to a corpse or a withdrawn partner just to finish the shared fade. */
     if(!personal_seat) {
@@ -1217,10 +1222,12 @@ static uint32_t personal_step(CPUState *cpu,uint32_t address,unsigned seat,
                               uint16_t input,uint16_t old) {
     personal_menu_write(&personal_menu[seat]);
     uint16_t edge=(uint16_t)(input&~old);
-    /* P1 owns the campaign's Quit, Escape and save/continue transitions. */
+    /* P2's Select is routed to the shared campaign Quit frontend below.
+     * Its personal menu must not start a second Quit or an Escape. */
     if(seat) {
         input&=(uint16_t)~SELECT;old&=(uint16_t)~SELECT;edge&=(uint16_t)~SELECT;
-        psx_mod_write_byte(MENU+0x23,0);psx_mod_write_byte(MENU+0x24,0);
+        psx_mod_write_byte(MENU+0x23,personal_menu[0].native[0x23]);
+        psx_mod_write_byte(MENU+0x24,0);
         if(personal_menu[seat].native[0x14]>=13)edge&=(uint16_t)~0x40u;
     }
     psx_mod_write_half(PAD,input);psx_mod_write_half(PAD+2,old);psx_mod_write_half(PAD+4,edge);
@@ -1265,12 +1272,25 @@ static uint32_t personal_tick(CPUState *cpu,uint32_t address) {
         int modal=personal_menu[0].native[4]==1 && personal_menu[0].native[5]>=5;
         int tank[2]={personal_tank_request(0,edge[0]),personal_tank_request(1,edge[1])};
         int interactive=personal_menu[0].native[4]==1 && personal_menu[1].native[4]==1;
+        int second_quit=interactive && !modal && (personal_eligible&2u) &&
+            (edge[1]&SELECT) && !((personal_eligible&1u) && (edge[0]&SELECT));
+        int second_escape=interactive && !modal && !busy && !tank[0] && !tank[1] &&
+            !second_quit && (personal_eligible&2u) && edge[1]==0x40 &&
+            personal_menu[1].native[5]==2 && personal_menu[1].native[0x14]==13 &&
+            personal_menu[0].native[0x23] && !((personal_eligible&1u) && (edge[0]&SELECT));
+        int campaign_request=second_quit || second_escape;
+        if(!modal)personal_modal_owner=campaign_request?1u:0u;
+        if(second_escape) {
+            /* Escape leaves the campaign menu through its original shared
+             * fade, once. Keep that transition out of P2's personal pass. */
+            personal_menu[0].native[5]=2;personal_menu[0].native[0x14]=13;
+        }
         unsigned resume=0;
         for(unsigned seat=0;seat<2;++seat)
             resume|=(personal_eligible&(1u<<seat)) && (edge[seat]&START);
         /* A tank confirmation wins over a simultaneous resume request.
          * Blocked exit/tank edges are consumed, never queued after healing. */
-        if(interactive && !busy && !modal && !tank[0] && !tank[1] && resume) {
+        if(interactive && !busy && !modal && !campaign_request && !tank[0] && !tank[1] && resume) {
             for(unsigned seat=0;seat<2;++seat) {
                 personal_menu[seat].native[4]=2;personal_menu[seat].native[5]=0;
             }
@@ -1281,8 +1301,9 @@ static uint32_t personal_tick(CPUState *cpu,uint32_t address) {
         for(unsigned turn=0;turn<2;++turn) {
             unsigned seat=first^turn;
             if(modal && seat && !personal_busy(seat))continue;
+            unsigned source=!seat && (modal || campaign_request)?personal_modal_owner:seat;
             int allowed=interactive && (!modal || !seat) &&
-                (personal_eligible&(1u<<seat));
+                (personal_eligible&(1u<<source));
             /* Native Options uses Start to return to the character menu.
              * Let P1 close that modal without interpreting it as team resume. */
             uint16_t mask=modal && !seat?0:START;
@@ -1295,8 +1316,10 @@ static uint32_t personal_tick(CPUState *cpu,uint32_t address) {
                 if(tank[seat] || (!seat && (menu[5]==6 ||
                    (menu[5]==2 && menu[0x14]==13))))mask|=0x40;
             }
-            uint16_t buttons=allowed?(uint16_t)(input[seat]&~mask):0;
-            uint16_t previous=allowed?(uint16_t)(old[seat]&~mask):0;
+            uint16_t buttons=allowed?(uint16_t)(input[source]&~mask):0;
+            uint16_t previous=allowed?(uint16_t)(old[source]&~mask):0;
+            if(!seat && second_quit) {buttons=SELECT;previous=0;}
+            if(!seat && second_escape) {buttons=0x40;previous=0;}
             result=personal_step(cpu,address,seat,buttons,previous);
             busy|=personal_busy(seat);
             modal|=personal_menu[0].native[4]==1 && personal_menu[0].native[5]>=5;
@@ -1304,6 +1327,8 @@ static uint32_t personal_tick(CPUState *cpu,uint32_t address) {
         }
     }
     personal_menu_write(&personal_menu[0]);write_bytes(PAD,pad,sizeof pad);
+    if(personal_menu[0].native[4]!=1 || personal_menu[0].native[5]<5)
+        personal_modal_owner=0;
     if(psx_mod_read_byte(PLAY)!=6 || psx_mod_read_byte(PLAY+1)!=2)
         menu_active=personal_active=0;
     return result;
@@ -1396,7 +1421,7 @@ static int stage_normal(CPUState *cpu,uint32_t address) {
     if(psx_mod_read_byte(PLAY+1)==2 && owner>=0) {
         menu_active=1;menu_owner=(unsigned)owner;
         if(simultaneous_menus) {
-            personal_active=1;personal_initialized=0;
+            personal_active=1;personal_initialized=personal_modal_owner=0;
             personal_eligible=(unsigned)mmx4_coop_alive(0)|((unsigned)mmx4_coop_alive(1)<<1);
             memset(personal_menu,0,sizeof personal_menu);
             personal_menu_read(&personal_menu[0]);menu_owner=0;
@@ -1415,9 +1440,8 @@ static int pause_menu(CPUState *cpu,uint32_t address) {
     uint16_t edge=(uint16_t)(input&~menu_previous[menu_owner]);
     uint16_t old=menu_previous[menu_owner];
     menu_previous[0]=mmx4_coop_input(0);menu_previous[1]=mmx4_coop_input(1);
-    /* Native 80030128 opens Quit Game with Select. Only P1 may leave the
-     * campaign; P2 keeps its normal personal menu and Start-to-resume. */
-    if(menu_owner) {input&=(uint16_t)~SELECT;old&=(uint16_t)~SELECT;edge&=(uint16_t)~SELECT;}
+    /* Either owner may open native 80030128's confirmed Quit with Select.
+     * Campaign progress and save ownership still remain with P1. */
     psx_mod_write_half(PAD,input);psx_mod_write_half(PAD+2,old);
     psx_mod_write_half(PAD+4,edge);
     mmx4_coop_menu_assets(cpu,menu_owner);
@@ -2145,7 +2169,7 @@ static void dismount_at_door(CPUState *cpu,unsigned seat,uint32_t actor) {
 static int scene_actor_canonical(CPUState *cpu,uint32_t address) {
     if(scene_guard || !mmx4_coop_ready() || !gameplay_scene() || mmx4_coop_projected())return 0;
     uint32_t actor=cpu->gpr[4];unsigned owner=0;
-    unsigned train=address==0x800D8648u || address==0x800D9218u;
+    unsigned train=address==0x800D8648u || address==0x800D9218u || address==0x800D9C84u;
     unsigned refight_portal=address==0x800C7164u;
     unsigned sigma_entrance=address==0x800D2A38u;
     if(sigma_entrance && (psx_mod_local_view_scope() ||
@@ -2304,6 +2328,17 @@ int mmx4_coop_lifecycle_defer_portal_solid(uint32_t actor) {
 static int scene_actor(CPUState *cpu,uint32_t address) {
     return mmx4_coop_combat_canonical_call(cpu,address,scene_actor_canonical);
 }
+static int train_midboss(CPUState *cpu,uint32_t address) {
+    uint32_t actor=cpu->gpr[4];
+    if(psx_mod_local_view_scope() || psx_mod_read_byte(PLAY+12)!=8 ||
+       psx_mod_read_byte(PLAY+13) || actor<0x80169CB8u || actor>=0x80169D78u ||
+       (actor-0x80169CB8u)%0x30u || !psx_mod_read_byte(actor) ||
+       psx_mod_read_byte(actor+1)!=3 || psx_mod_read_byte(actor+2))return 0;
+    /* D9CB0 admits the train midboss only after PLAYER.x reaches7009.
+     * This category7 controller is outside the nearest-enemy AI pool. Run
+     * its one native allocation/scene with the progressing living hero. */
+    return scene_actor(cpu,address);
+}
 int mmx4_coop_lifecycle_train(CPUState *cpu,uint32_t address) {
     return scene_actor(cpu,address);
 }
@@ -2425,6 +2460,11 @@ static int script_command(CPUState *cpu,uint32_t address) {
         cpu->gpr[4],owner,both_door.phase,both_door.serial,script_serial);
     unsigned redirect=!owner && !mmx4_coop_alive(0) && mmx4_coop_alive(1);
     if(redirect) {mmx4_coop_enter_second();owner=1;}
+    if(address==0x80036AE4u && cpu->gpr[31]==0x80049548u &&
+       cpu->gpr[4]==0x15u && !cpu->gpr[5] && !psx_mod_local_view_scope() &&
+       psx_mod_read_byte(PLAY)==6 && !psx_mod_read_byte(PLAY+12) &&
+       psx_mod_read_byte(PLAY+13)==1)
+        mmx4_coop_split_commit_scene_camera(owner);
     if(address==0x80036AE4u && paired_victory_scene(cpu)) {
         paired_victory=1;
         psx_mod_counter_add("mmx4.coop.paired-victory-scenes",1);
@@ -2536,6 +2576,7 @@ uint32_t mmx4_coop_lifecycle_digest(uint32_t seed) {
     seed=hash_word(seed,simultaneous_menus);
     seed=hash_word(seed,personal_active);seed=hash_word(seed,personal_initialized);
     seed=hash_word(seed,personal_eligible);
+    seed=hash_word(seed,personal_modal_owner);
     for(unsigned seat=0;seat<2;++seat) {
         for(unsigned i=0;i<sizeof personal_menu[seat].native;++i)
             seed=hash_byte(seed,personal_menu[seat].native[i]);
@@ -2599,6 +2640,7 @@ uint32_t mmx4_coop_lifecycle_digest(uint32_t seed) {
     return seed;
 }
 PSX_MOD_CONSTRUCTOR(mmx4_register_coop_lifecycle) {
+    psx_mod_register_function_filter_plugin("mmx4.coop",0x800D9C84u,train_midboss);
     psx_mod_register_function_entry_plugin(ID,0x8001FBB8u,fresh_game);
     psx_mod_register_function_entry_plugin(ID,0x8001FBE0u,full_stage);
     psx_mod_register_function_entry_plugin(ID,0x8002E420u,stage_selection);
