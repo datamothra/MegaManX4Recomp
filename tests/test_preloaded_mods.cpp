@@ -50,13 +50,13 @@ int main(int argc, char** argv) {
             return fail("manifest parse failed: " + error);
         }
     }
-    if (manifest_count != 10) return fail("expected ten package manifests, including one Japanese FMVs mod");
+    if (manifest_count != 11) return fail("expected eleven package manifests, including the optional cutscene experiment");
 
     PSXRecompV4::mod_clear_plugins_for_tests();
     for (const char* id : {
              "mmx4.damage-multiplier",
              "mmx4.resident-loading",
-             "mmx4.widescreen", "mmx4.coop", "mmx4.coop4", "mmx4.diagnostics",
+             "mmx4.widescreen", "mmx4.coop", "mmx4.coop4", "mmx4.diagnostics", "mmx4.coop-free-cutscenes",
              "mmx4.ultimate_armor", "mmx4.black_zero",
              "mmx4.japanese-media", "mmx4.translation",
              "mmx4.japanese-fmvs"}) {
@@ -69,8 +69,8 @@ int main(int argc, char** argv) {
     std::string error;
     if (!manager.scan(&error)) return fail("catalog scan failed: " + error);
     if (!manager.load_state(&error)) return fail("default state failed: " + error);
-    if (manager.packages().size() != 10)
-        return fail("expected ten package families");
+    if (manager.packages().size() != 11)
+        return fail("expected eleven package families");
 
     const auto default_plan = manager.resolve(kGameId, "", kDiscSha256);
     if (!default_plan.ok || !default_plan.writes.empty() ||
@@ -78,6 +78,15 @@ int main(int argc, char** argv) {
         return fail("normal-damage override was not enabled by default");
     }
     bool diagnostics_default=false;
+    if(manager.feature_enabled("mmx4.coop-free-cutscenes","free-cutscenes"))
+        return fail("free cutscenes experiment must default off");
+    if(!manager.set_feature_enabled("mmx4.coop-free-cutscenes","free-cutscenes",true,&error))return fail(error);
+    const auto free_scene_plan=manager.resolve(kGameId,"",kDiscSha256);
+    if(!free_scene_plan.ok || free_scene_plan.fingerprint==default_plan.fingerprint)
+        return fail("cutscene experiment must affect session identity");
+    if(!manager.set_feature_enabled("mmx4.coop-free-cutscenes","free-cutscenes",false,&error) ||
+       manager.resolve(kGameId,"",kDiscSha256).fingerprint!=default_plan.fingerprint)
+        return fail("disabling the experiment must restore the normal plan");
     for(const auto& plugin:default_plan.plugins)diagnostics_default|=plugin.id=="mmx4.diagnostics";
     if(diagnostics_default || manager.feature_enabled("mmx4.diagnostics","inputs"))
         return fail("input diagnostics must default off");
