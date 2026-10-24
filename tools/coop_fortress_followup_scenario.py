@@ -205,6 +205,42 @@ def sigma2_lasers(s):
     return dict(native_emitter_origins=results)
 
 
+def sigma_ladder_survivor(s):
+    """Native upper return strip after the distant partner's void death."""
+    r=s.r;lead=s.victory_seat;dead=lead^1
+    s.load(10,0,1);r.fixture(5,3)
+    tower_top(s,lead);r.input(0xffdf,lead)
+    try:s.wait('survivor-before-door',lambda v:v['players'][lead]['x']>=4050,12)
+    finally:r.release()
+    before=retain(s,'ladder-waiting-before-death')
+    assert before['players'][lead]['x']<4130,'Setup entered the first door'
+    r.teleport(dead,1278,2280)
+    s.wait('ladder-partner-dead',lambda v:not v['players'][dead]['hp'],8)
+    retain(s,'ladder-after-partner-death')
+    r.input(0xff7f,lead)
+    try:s.wait('survivor-back-to-ladder',lambda v:v['players'][lead]['x']<=3929,10)
+    finally:r.release()
+    # Align the original return strip after native upper-area admission.
+    # Down drives the original ladder/terrain controller; no bounds or
+    # death/success flags are written by the fixture.
+    r.teleport(lead,3928,927);r.input(0xffbf,lead);rows=[]
+    try:
+        for n in range(65):
+            row=s.sample('survivor-ladder-'+str(n));row['views']=cameras(s);rows.append(row)
+            p=row['players'][lead]
+            if not p['hp'] or (p['grounded'] and p['y']>=1008):break
+            time.sleep(.07)
+    finally:
+        r.release();(s.output/'survivor-ladder.json').write_text(json.dumps(rows,indent=2))
+    final=retain(s,'survivor-ladder-landed');p=final['players'][lead]
+    assert p['hp'] and p['grounded'] and p['y']>=1008,('Unsafe ladder descent',final)
+    assert final['views'][lead][0x28//2]==2048 and final['views'][lead][7]>736, \
+        'The upper camera enclosure did not release'
+    assert not final['players'][dead]['hp'] and final['lives']==before['lives']
+    return dict(leader=lead,landing_y=p['y'],hp=p['hp'],camera_y=final['views'][lead][7],
+                target_bottom=final['views'][lead][0x28//2],dead_partner_preserved=True)
+
+
 def magma_giga_death(s):
     results=[]
     for leader in (0,1):

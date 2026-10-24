@@ -1833,8 +1833,37 @@ static int stage_scripts(CPUState *cpu,uint32_t address) {
      * 80142F98, stride 0x30. It never runs a player, projectile, or enemy
      * world loop. The surviving body's progression triggers run once. */
     script_pool_guard=1;
+    uint8_t canonical_camera[0xFC];
+    int own_camera=psx_mod_read_byte(PLAY+12)==10 && !psx_mod_read_byte(PLAY+13) &&
+        mmx4_coop_split_scene_camera_begin(1,canonical_camera);
     uint32_t result=call_story_as_second(cpu,address,cpu->gpr[4],cpu->gpr[5]);
+    /* Sigma1's narrow ladder return strips must update the survivor's real
+     * camera. Keep the native bounds/culling result when that shared pool
+     * is projected to P2, including the P1-death ownership transition. */
+    if(own_camera)mmx4_coop_split_scene_camera_end(1,canonical_camera,1);
     script_pool_guard=0;return mmx4_coop_finish(cpu,result);
+}
+static int volcano_platform_start(CPUState *cpu,uint32_t address) {
+    if(scene_guard || !mmx4_coop_ready() || mmx4_coop_projected() || psx_mod_local_view_scope() ||
+       psx_mod_read_byte(PLAY)!=6 || psx_mod_read_byte(PLAY+12)!=4 ||
+       psx_mod_read_byte(PLAY+13)!=1 || psx_mod_read_byte(PLAY+0x1D) ||
+       !mmx4_coop_alive(1))return 0;
+    uint32_t actor=cpu->gpr[4];
+    if(actor<0x80142F98u || actor>=0x80143598u || (actor-0x80142F98u)%0x30u ||
+       !psx_mod_read_byte(actor) || psx_mod_read_byte(actor+1)!=34 ||
+       psx_mod_read_byte(actor+4))return 0;
+    uint32_t x=psx_mod_read_word(PLAYER+8);
+    uint32_t second_x=body_word(mmx4_coop_second_body(),8);
+    if((int32_t)second_x<577*65536 || (int32_t)x>=577*65536)return 0;
+    /* BCEA8 arms the one authored pillar sequence at signed X>576. Its
+     * initialization reads only PLAYER.x; keep the nine original timers,
+     * emitter allocations and terrain edits in the native shared update. */
+    scene_guard=1;
+    psx_mod_write_word(PLAYER+8,second_x);
+    uint32_t result=mmx4_coop_call(cpu,address,actor,cpu->gpr[5]);
+    psx_mod_write_word(PLAYER+8,x);
+    scene_guard=0;
+    return mmx4_coop_finish(cpu,result);
 }
 static void completed_survivor_exit(CPUState *cpu,uint32_t address) {
     (void)address;
@@ -2687,6 +2716,7 @@ PSX_MOD_CONSTRUCTOR(mmx4_register_coop_lifecycle) {
     psx_mod_register_function_filter_plugin(ID,0x80035A6Cu,death_animation);
     psx_mod_register_function_filter_plugin(ID,0x80033BC8u,death_detection);
     psx_mod_register_function_filter_plugin(ID,0x8002166Cu,stage_scripts);
+    psx_mod_register_function_filter_plugin(ID,0x800BCE48u,volcano_platform_start);
     psx_mod_register_function_filter_plugin(ID,0x800B60BCu,floor_controller);
     psx_mod_register_instruction_plugin(ID,0x800B9F74u,0x2442FD5Fu,frost_ice_activation);
     psx_mod_register_instruction_plugin(ID,0x800BA39Cu,0x28420C60u,frost_path_activation);

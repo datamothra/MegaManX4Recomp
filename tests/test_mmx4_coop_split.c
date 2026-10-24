@@ -171,7 +171,7 @@ static uint32_t invoke(CPUState *cpu,uint32_t address) {
             psx_mod_write_half(actor+10,psx_mod_read_half(CAMERA+10)+100);
             psx_mod_write_half(actor+14,psx_mod_read_half(CAMERA+14)+100);
             psx_mod_write_byte(actor+4,1);
-        }else {
+        }else if(!(psx_mod_read_half(CAMERA+0x34)&16u)) {
             cpu->gpr[16]=actor;cpu->gpr[31]=0x800A0858u;cpu->gpr[6]=2;
             mmx4_coop_call(cpu,0x80028B68u,16,6);
         }
@@ -2228,6 +2228,20 @@ int main(void) {
         CHECK(!psx_mod_read_byte(saved_camera(leader^1u,0)+0x36));
         CHECK(psx_mod_read_half(CAMERA+10)==(leader?40:1640));
         CHECK(mmx4_coop_split_snapshot_ready());
+        /* A placed ball can hit beside the non-allocating hero. Its native
+         * quake guard must see that nearby view's running timer, rather than
+         * restart it from a distant view's clear bit on the next update. */
+        unsigned other=leader^1u;
+        actor_position(ball,200,427);
+        psx_mod_write_half(saved_camera(other,0)+0x34,0);
+        psx_mod_write_half(saved_camera(leader,0)+0x34,0);
+        unsigned issued=shake_calls;cpu.gpr[4]=ball;
+        invoke(&cpu,0x800A03B8u);
+        CHECK(fireball_camera_x==40 && shake_calls==issued+1);
+        psx_mod_write_byte(saved_camera(other,0)+0x36,7);
+        invoke(&cpu,0x800A03B8u);
+        CHECK(shake_calls==issued+1 && psx_mod_read_byte(saved_camera(other,0)+0x36)==7);
+        CHECK(psx_mod_read_half(CAMERA+10)==(leader?40:1640));
         /* One hero already beyond the emitter cannot retire it while the
          * other is still in its authored falling-fireball window. */
         actor_position(MMX4_PLAYER,1800,427);second_position(4000,427);cpu.gpr[4]=emitter;

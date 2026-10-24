@@ -423,7 +423,11 @@ static int volcano_fireball(CPUState *cpu,uint32_t address) {
     if(volcano_fireball_call || !volcano_context() || actor<0x8013F328u || actor>=0x801406A8u ||
        (actor-0x8013F328u)%0x9Cu || psx_mod_read_byte(actor+1)!=33)return 0;
     unsigned owner=mmx4_coop_secondary_allocation_owner(actor);
-    if(!owner || owner>2 || !mmx4_coop_alive(owner-1u)) {
+    /* Only falling initialization has no world position. Once placed, a
+     * rolling/erupting ball may be beside the other hero. Keeping its remote
+     * allocator's camera can make impact code test that distant view's
+     * clear quake bit and restart the nearby view's quake every tick. */
+    if(psx_mod_read_byte(actor+4) || !owner || owner>2 || !mmx4_coop_alive(owner-1u)) {
         Mmx4CoopViewActor actors[2];mmx4_coop_split_actors(actors);
         owner=mmx4_coop_view_nearest(actors,(int16_t)psx_mod_read_half(actor+10),
             (int16_t)psx_mod_read_half(actor+14),0)+1u;

@@ -52,6 +52,7 @@ int psx_mod_current_option_value(const char *key,char *value,uint32_t cap) {
 }
 int mmx4_coop_both_door_players(void) {return both_door_players;}
 static unsigned stage_script_calls,scene_calls,observed_controls;
+static unsigned stage_camera_model,stage_camera_commits,stage_camera_y;
 static unsigned both_door_crossings;
 static unsigned door_map_queries;
 static uint32_t door_map_kind;
@@ -127,9 +128,14 @@ void mmx4_coop_split_commit_scene_camera(unsigned owner) {
     ++scene_camera_commits;scene_camera_owner=owner;
 }
 int mmx4_coop_split_scene_camera_begin(unsigned owner,uint8_t canonical[0xFC]) {
+    if(stage_camera_model && split_views) {
+        assert(owner==1);memset(canonical,0,0xFC);
+        psx_mod_write_half(0x801419BEu,736);return 1;
+    }
     (void)owner;(void)canonical;return 0;
 }
 void mmx4_coop_split_scene_camera_end(unsigned owner,const uint8_t canonical[0xFC],int committed) {
+    if(stage_camera_model) {assert(owner==1 && committed);++stage_camera_commits;}
     (void)owner;(void)canonical;(void)committed;
 }
 uint8_t mmx4_coop_solid_contact_bits(uint32_t actor,unsigned seat) {
@@ -473,9 +479,18 @@ uint32_t mmx4_coop_call(CPUState *cpu,uint32_t address,uint32_t a0,uint32_t a1) 
     }
     case 0x800C6EDC:
         psx_mod_write_byte(MMX4_PLAY+0x47,2);psx_mod_write_byte(MMX4_PLAYER+0xA7,2);break;
+    case 0x800BCE48:
+        assert(!mmx4_coop_lifecycle_snapshot_ready());
+        ++stage_script_calls;
+        if((int16_t)psx_mod_read_half(MMX4_PLAYER+10)>576)psx_mod_write_byte(a0+4,1);
+        break;
     case 0x8002166C:
         ++stage_script_calls;observed_campaign=psx_mod_read_byte(MMX4_PLAY+0x43);
         stage_script_projected=projected;
+        if(stage_camera_model) {
+            stage_camera_y=psx_mod_read_half(0x801419BEu);
+            psx_mod_write_half(0x801419D8u,2048);break;
+        }
         if(stage_animation_frame) {
             /* Native kind3 B5DCC caches its destination from SCRATCH+28;
              * B5C60 copies the next palette frame and requests dirty bit1.
@@ -749,6 +764,7 @@ static void put32(uint8_t *p,uint32_t value) {
     for(unsigned i=0;i<4;++i)p[i]=(uint8_t)(value>>(8*i));
 }
 static void reset(void) {
+    stage_camera_model=stage_camera_commits=stage_camera_y=0;
     stage_palette_phase=palette_swap_model=palette_uploads=0;palette_uploaded=0;
     stage_animation_destination=stage_animation_frame=0;palette_uploaded_world=0;
     both_door_players=0;
@@ -1952,6 +1968,48 @@ int main(void) {
         if(test==5)psx_mod_write_byte(PLAY,7);
         mmx4_coop_call(&cpu,0x80036AE4u,test==6?0x15:0x14,test==7?0x40:0);
         CHECK(psx_mod_read_half(0x801419D6u)==0);
+    }
+    /* The survivor's Sigma ladder pass sees its own camera and keeps the
+     * authored deeper limit; other stages and Unified keep their context. */
+    for(unsigned test=0;test<4;++test) {
+        reset();stage_camera_model=1;split_views=test!=1;
+        psx_mod_write_byte(PLAY+12,test==2?9:10);
+        psx_mod_write_byte(PLAYER+0x5C,test==3?32:0);
+        psx_mod_write_half(0x801419BEu,2048);
+        mmx4_coop_call(&cpu,0x8002166Cu,0,0);
+        CHECK(stage_script_calls==1 && !projected);
+        CHECK(stage_camera_y==(test?2048u:736u));
+        CHECK(stage_camera_commits==(test==0));
+        CHECK(psx_mod_read_half(0x801419D8u)==2048);
+    }
+    /* The part2 pillar sequence is distinct from ordinary fireball emitters.
+     * Exercise the original signed X>576 admission and exclusion boundaries. */
+    for(unsigned mode=0;mode<2;++mode)for(unsigned test=0;test<17;++test) {
+        reset();split_views=(int)mode;psx_mod_write_byte(PLAY+12,4);psx_mod_write_byte(PLAY+13,1);
+        uint32_t actor=0x80142F98u;cpu.gpr[4]=actor;
+        psx_mod_write_byte(actor,1);psx_mod_write_byte(actor+1,34);
+        uint32_t original_x=test==14?(576u<<16)|0x8000u:test==16?577u<<16:64u<<16;
+        psx_mod_write_word(PLAYER+8,original_x);
+        put32(p2+8,(test==1?576u:test==2?577u:640u)<<16);
+        if(test==3)p2[0x5C]=0;
+        if(test==4)projected=1;
+        if(test==5)local_view=1;
+        if(test==6)psx_mod_write_byte(PLAY+12,3);
+        if(test==7)psx_mod_write_byte(PLAY+13,0);
+        if(test==8)psx_mod_write_byte(PLAY+0x1D,1);
+        if(test==9)psx_mod_write_byte(actor+4,1);
+        if(test==10)psx_mod_write_byte(actor+1,33);
+        if(test==11)ready=0;
+        if(test==12)psx_mod_write_byte(PLAY,7);
+        if(test==13)scene_guard=1;
+        if(test==15)put32(p2+8,(576u<<16)|0xC000u);
+        unsigned calls=stage_script_calls;
+        int handled=volcano_platform_start(&cpu,0x800BCE48u);
+        CHECK(handled==(test==0 || test==2 || test==14));
+        CHECK(stage_script_calls==calls+(unsigned)handled);
+        CHECK(psx_mod_read_word(PLAYER+8)==original_x);
+        if(handled)CHECK(psx_mod_read_byte(actor+4)==1);
+        if(test==13)scene_guard=0;
     }
     /* Either living hero can arm the original opening-ice cycle, including
      * both exact interval edges. The clock and shared world are untouched. */
