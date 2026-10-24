@@ -713,7 +713,7 @@ static void four_fixture(CPUState *cpu,uint32_t address) {
 #endif
 static int four_primary_sprite(CPUState *cpu,uint32_t address) {
     (void)address;
-    if(rendering || projected || !enrolled || failed || psx_mod_read_byte(PLAY)!=6)return 0;
+    if(rendering || projected || !enrolled || failed || !world_draw_visible())return 0;
     uint32_t actor=cpu->gpr[4];
     /* The shared world retains objects for every camera. Reject a foreign
      * view's offscreen sprites before native assembly/packet generation;
@@ -744,7 +744,10 @@ static int four_primary_sprite(CPUState *cpu,uint32_t address) {
     return mmx4_coop_finish(cpu,0);
 }
 static int four_render(CPUState *cpu,uint32_t address) {
-    if(four_render_call || projected || failed || !enrolled || psx_mod_read_byte(PLAY)!=6)return 0;
+    /* Native Options also clears these object buckets. Only real world
+     * passes may append the extra heroes, as in the two-player renderer. */
+    if(four_render_call || projected || failed || !enrolled || !world_draw_visible())return 0;
+    psx_mod_counter_add("mmx4.coop4.world-sprite-passes",1);
     four_render_call=1;
     uint32_t result=guest(cpu,address,cpu->gpr[4],cpu->gpr[5]);
     rendering=1;

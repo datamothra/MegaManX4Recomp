@@ -7,6 +7,9 @@ experimental; this is not a stable release.
 The later [heavy-gameplay follow-up](FOUR_PLAYER_HEAVY_GAMEPLAY_QA.md)
 supersedes this artifact and its idle-skip/performance conclusions. This file
 retains the earlier qualification evidence and remaining campaign scope.
+The subsequent [layer/menu correction](FOUR_PLAYER_LAYER_QA.md) found that
+four-player packet allocations silently prevented the authored-map renderer
+from activating. Earlier visual checks and timings do not establish that path.
 
 The launcher now calls the renderer mod **Widescreen** and the roster mod
 **Four Player Co-op**. Offline settings expose Local cameras; the Netplay flow
