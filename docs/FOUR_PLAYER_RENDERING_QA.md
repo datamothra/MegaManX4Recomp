@@ -4,6 +4,10 @@ This supersedes the earlier LLE handoff in
 [FOUR_PLAYER_FOLLOWUP_QA.md](FOUR_PLAYER_FOLLOWUP_QA.md). The branch remains
 experimental; this is not a stable release.
 
+The later [heavy-gameplay follow-up](FOUR_PLAYER_HEAVY_GAMEPLAY_QA.md)
+supersedes this artifact and its idle-skip/performance conclusions. This file
+retains the earlier qualification evidence and remaining campaign scope.
+
 The launcher now calls the renderer mod **Widescreen** and the roster mod
 **Four Player Co-op**. Offline settings expose Local cameras; the Netplay flow
 exposes Online cameras. Returning to the dashboard restores the offline
