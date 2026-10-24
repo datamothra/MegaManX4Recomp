@@ -23,6 +23,10 @@ mod_instruction_sites = ["0x8001302C", "0x80013148", "0x80020018", "0x80021300",
 
 
 [runtime]
+# Audited USA PsyQ v_wait loop; retain IRQ and device event boundaries.
+idle_skip = true
+idle_skip_store_counters = true
+idle_skip_store_counter_sites = ["0x800E4F6C"]
 debug_port = 4525
 window_title = "MegaManX4Recomp"
 memcard_dir = "saves"
@@ -55,7 +59,7 @@ overlay_autocompile_cmd = "py -3 psxrecomp-v4/tools/compile_overlays.py --game-t
 buffer_ms = 60
 
 [video]
-# The default-on Custom Renderer follows the live drawable aspect.
+# The default-on Widescreen mod follows the live drawable aspect.
 aspect_ratio = "4:3"
 
 # auto_skip_fmv: auto-skip full-motion videos (XA audio + MDEC). Off for the
