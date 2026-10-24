@@ -100,6 +100,7 @@ set(MMX4_COOP_CONTRACT_FILES
     src/mods/mmx4_diagnostic_writer.h src/mods/mmx4_diagnostic_mode.h
     src/mods/mmx4_widescreen_plugin.c
     mods/preloaded/packages/mmx4.coop/0.0.1/manifest.toml
+    mods/preloaded/packages/mmx4.coop-free-cutscenes/0.0.1/manifest.toml
     mods/preloaded/packages/mmx4.coop4/0.0.1/manifest.toml)
 set(MMX4_COOP_CONTRACT "mmx4-coop-delay-v3\n")
 set(MMX4_COOP_PROFILE_PREFIX "mmx4-coop-delay-v3")
@@ -152,6 +153,8 @@ add_custom_command(TARGET psx-runtime POST_BUILD
 
 if(BUILD_TESTING)
     add_executable(psx_render_pass_sandbox_test
+        "${PSXRECOMP_V4_ROOT}/runtime/src/frame_trace.c"
+        "${PSXRECOMP_V4_ROOT}/runtime/src/stereo_shed_policy.c"
         "${PSXRECOMP_V4_ROOT}/runtime/tests/test_render_pass_sandbox.c"
         "${PSXRECOMP_V4_ROOT}/runtime/src/render_pass.c"
         "${PSXRECOMP_V4_ROOT}/runtime/src/render_pass_plan.c"
@@ -163,6 +166,8 @@ if(BUILD_TESTING)
     if(NOT MSVC)
         target_link_libraries(psx_render_pass_sandbox_test PRIVATE m)
         add_executable(psx_render_pass_abort_test
+            "${PSXRECOMP_V4_ROOT}/runtime/src/frame_trace.c"
+            "${PSXRECOMP_V4_ROOT}/runtime/src/stereo_shed_policy.c"
             "${PSXRECOMP_V4_ROOT}/runtime/tests/test_render_pass_abort.c"
             "${PSXRECOMP_V4_ROOT}/runtime/src/render_pass.c"
             "${PSXRECOMP_V4_ROOT}/runtime/src/psx_cycles.c")

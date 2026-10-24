@@ -4,6 +4,8 @@
 #define FOUR_ID "mmx4.coop4"
 #define FOUR_CAMERA 0x801419B0u
 #define FOUR_ACTOR_DISPATCH 0x8F7FFE00u
+#define FOUR_PLAYER_PASS 0x8F7FFE10u
+#define FOUR_CAMERA_PASS 0x8F7FFE20u
 typedef struct {
     PlayerContext player;
     uint8_t inventory[0x64], palette[0x1000], camera[0xFC];
@@ -15,9 +17,15 @@ typedef struct {
 } FourContact;
 static Mmx4CoopRoster four_roster;
 static FourSeat four_seats[4];
+static unsigned four_menu_character(unsigned seat) {
+    four_target=seat;
+    return seat<four_roster.count?mmx4_roster_character(four_roster.hero[seat]):0;
+}
 static FourContact four_contacts[256];
 static unsigned four_contact_count,four_busy,four_current,four_collision;
 static unsigned four_camera_call,four_render_call,four_present_call;
+static unsigned four_controls_call;
+static unsigned four_camera_owner;
 static unsigned four_actor_call,four_pending,four_function,four_reaction,four_reaction_actor;
 static unsigned four_draw_used[4];
 static uint8_t four_effect_owner[32];
@@ -25,6 +33,15 @@ static unsigned four_allocation_call,four_effect_call,four_world_draw_call;
 static unsigned four_scan_call,four_supplemental,four_bounds_call;
 static unsigned four_death_call;
 static unsigned four_grid_cell;
+#ifndef PSX_NO_DEBUG_TOOLS
+static unsigned four_fixture_protection;
+#endif
+static unsigned four_normal_call;
+static uint16_t four_menu_previous[4];
+/* One authored door/world state machine, with native auto-walk protection
+ * for every living participant. Dead seats never join or get revived. */
+static struct { uint32_t actor; unsigned owner,participants; int8_t feet[4]; } four_door;
+static unsigned four_door_call;
 static int four_wide_seat(unsigned seat) {
     return local_split && four_roster.count==3 && seat==2;
 }
@@ -90,14 +107,48 @@ static int four_alive(unsigned seat) {
 static void four_first(void) {
     if(!projected)capture_player(&first);
 }
+static int four_free_scene_owner(void) {
+    if(!mmx4_coop_free_cutscenes_enabled() || !enrolled || failed)return -1;
+    int owner=-1;
+    for(unsigned seat=0;seat<four_roster.count;++seat)if(four_alive(seat)) {
+        const uint8_t *body=four_body(seat);
+        if(body[0xC4])return -1;
+        if(body[0xC0] && owner<0)owner=(int)seat;
+    }
+    return owner;
+}
+static int four_free_scene_for(unsigned seat) {
+    int owner=four_free_scene_owner();
+    return owner>=0 && owner!=(int)seat && four_alive(seat) && !four_body(seat)[0xC0];
+}
+static int four_controls(CPUState *cpu,uint32_t address) {
+    if(four_controls_call || !enrolled || failed || psx_mod_local_view_scope())return 0;
+    four_first();unsigned seat=projected?four_current:0;
+    uint8_t freeze=four_free_scene_for(seat)?psx_mod_read_byte(PLAY+0x10):0;
+    if(!freeze)return 0;
+    four_controls_call=1;psx_mod_write_byte(PLAY+0x10,0);
+    uint32_t result=guest(cpu,address,cpu->gpr[4],cpu->gpr[5]);
+    psx_mod_write_byte(PLAY+0x10,freeze);four_controls_call=0;
+    psx_mod_counter_add("mmx4.coop4.free-cutscene-control-ticks",1);
+    return mmx4_coop_finish(cpu,result);
+}
 static uint32_t four_digest(void) {
     uint32_t hash=hash_word(2166136261u,four_roster.count);
     hash=hash_bytes(hash,four_roster.hero,sizeof four_roster.hero);
     hash=hash_word(hash,enrolled);hash=hash_word(hash,failed);hash=hash_word(hash,frames);
-    const uint32_t transients[]={four_busy,four_current,projected,four_camera_call,four_collision,
+    hash=hash_word(hash,mmx4_coop_free_cutscenes_enabled());
+    const uint32_t transients[]={four_busy,four_current,projected,four_camera_call,four_controls_call,four_collision,
         four_actor_call,four_pending,four_function,four_reaction,four_reaction_actor,four_scan_call,
         four_supplemental,four_bounds_call,four_death_call,four_allocation_call,four_effect_call,x_variant};
     for(unsigned i=0;i<sizeof transients/sizeof transients[0];++i)hash=hash_word(hash,transients[i]);
+    hash=hash_bytes(hash,(const uint8_t*)four_menu_previous,sizeof four_menu_previous);
+    hash=hash_word(hash,four_door.actor);hash=hash_word(hash,four_door.owner);
+    hash=hash_word(hash,four_door.participants);hash=hash_word(hash,four_door_call);
+    hash=hash_word(hash,four_camera_owner);
+    hash=hash_bytes(hash,(const uint8_t*)four_door.feet,sizeof four_door.feet);
+#ifndef PSX_NO_DEBUG_TOOLS
+    hash=hash_word(hash,four_fixture_protection);
+#endif
     if(projected) {
         hash=hash_player(hash,&first);hash=hash_bytes(hash,four_saved_inventory,sizeof four_saved_inventory);
         for(unsigned i=0;i<9;++i)hash=hash_word(hash,saved_resources[i]);
@@ -120,13 +171,14 @@ static uint32_t four_digest(void) {
         hash=hash_bytes(hash,c->vehicle_sides,sizeof c->vehicle_sides);
         hash=hash_bytes(hash,c->vehicle_carried,sizeof c->vehicle_carried);
     }
-    return hash;
+    return mmx4_coop_personal_digest(hash);
 }
 static void four_diagnostics(void) {
     if(!diagnostic || projected || psx_mod_local_view_scope())return;
     psx_mod_write_word(diagnostic,0x34503458u);psx_mod_write_word(diagnostic+4,four_roster.count);
     psx_mod_write_word(diagnostic+8,enrolled);psx_mod_write_word(diagnostic+12,failed);
     psx_mod_write_word(diagnostic+16,frames);psx_mod_write_word(diagnostic+20,four_digest());
+    psx_mod_write_word(diagnostic+0x20,psx_mod_read_byte(PLAY+0x10));
     four_first();
     for(unsigned seat=0;seat<four_roster.count;++seat) {
         const PlayerContext *p=seat?&four_seats[seat].player:&first;
@@ -134,6 +186,8 @@ static void four_diagnostics(void) {
         project(diagnostic+0x500u+seat*0x100u,four_seats[seat].camera,sizeof four_seats[seat].camera);
         project(diagnostic+0x900u+seat*0x100u,p->shots,0x100);
     }
+    uint8_t menus[4][0x34];mmx4_coop_personal_export(menus);
+    project(diagnostic+0xD00u,menus,sizeof menus);
 }
 static void four_reset(CPUState *cpu,uint32_t address) {
     (void)cpu;(void)address;
@@ -142,6 +196,10 @@ static void four_reset(CPUState *cpu,uint32_t address) {
     four_placement_table=0;memset(four_visited,0,sizeof four_visited);
     memset(four_effect_owner,0,sizeof four_effect_owner);
     memset(four_seats,0,sizeof four_seats);memset(four_contacts,0,sizeof four_contacts);
+    mmx4_coop_personal_reset();
+    memset(four_menu_previous,0,sizeof four_menu_previous);
+    memset(&four_door,0,sizeof four_door);four_door_call=0;
+    four_camera_owner=0;
     four_form(0);
 }
 static void four_canonical_form(CPUState *cpu,uint32_t address) {
@@ -154,6 +212,7 @@ static int four_enroll(CPUState *cpu) {
     capture_player(&first);
     uint32_t x=le32(first.body+8),y=le32(first.body+12),box=le32(first.body+0x68);
     unsigned incoming=play[0x1C]==1;
+    unsigned geometry_wait=first.body[0xBE];
     for(unsigned seat=1;seat<four_roster.count;++seat) {
         unsigned form=four_roster.hero[seat],character=mmx4_roster_character(form);
         select_x_variant(form==MMX4_HERO_ULTIMATE_X);
@@ -167,7 +226,12 @@ static int four_enroll(CPUState *cpu) {
         psx_mod_write_word(PLAYER+8,spawn);psx_mod_write_word(PLAYER+12,spawn_y);
         psx_mod_write_byte(PLAYER+3,1);psx_mod_write_byte(PLAYER+4,1);psx_mod_write_byte(PLAYER+5,2);
         guest(cpu,0x800350A4u,PLAYER,0);
-        if(!incoming) {
+        if(incoming) {
+            guest(cpu,0x80035848u,PLAYER,0);
+            psx_mod_write_byte(PLAYER+0xBE,(uint8_t)geometry_wait);
+            if(geometry_wait)psx_mod_write_word(PLAYER+0x68,0);
+            else guest(cpu,0x80035EA4u,PLAYER,0);
+        }else {
             guest(cpu,0x80035EA4u,PLAYER,0);
             uint32_t own_box=psx_mod_read_word(PLAYER+0x68);
             if(box && own_box) {
@@ -185,11 +249,22 @@ static int four_enroll(CPUState *cpu) {
     psx_mod_counter_add("mmx4.coop4.enrolled",four_roster.count);
     return 1;
 }
+static void four_player_pass(CPUState *cpu,uint32_t address) {
+    (void)address;
+    guest(cpu,0x80035EF0u,0,0);guest(cpu,0x80021C14u,0,0);guest(cpu,0x800311ECu,0,0);
+    guest(cpu,0x80021340u,0,0);
+    if(psx_mod_read_word(PLAYER+0x68) && !psx_mod_read_byte(PLAYER+0xBE) &&
+       !psx_mod_read_byte(PLAYER+0xC4))guest(cpu,0x8002C614u,PLAYER,0);
+    guest(cpu,0x80021D84u,0,0);guest(cpu,0x80021CC8u,0,0);
+}
 static void four_tick(CPUState *cpu,uint32_t address) {
     (void)address;
     if(four_busy || projected || failed || psx_mod_read_byte(PLAY)!=6 || psx_mod_read_byte(PLAY+1))return;
     four_busy=1;
-    if(!enrolled && psx_mod_read_byte(PLAYER+4)==1 && !psx_mod_read_byte(PLAY+0x1C)) {
+    int arrival=psx_mod_read_byte(PLAY+0x1C)==1 && psx_mod_read_byte(PLAY+0x1E) &&
+        psx_mod_read_byte(PLAY+0x1F)==1 && !psx_mod_read_byte(PLAYER+5) &&
+        psx_mod_read_byte(PLAYER+0x67)==255;
+    if(!enrolled && psx_mod_read_byte(PLAYER+4)==1 && (!psx_mod_read_byte(PLAY+0x1C) || arrival)) {
         if(!four_enroll(cpu)) {failed=1;fprintf(stderr,"mmx4.coop4: native enrollment failed\n");}
     }
     if(enrolled && !failed) {
@@ -198,15 +273,30 @@ static void four_tick(CPUState *cpu,uint32_t address) {
         for(unsigned seat=1;seat<four_roster.count;++seat) {
             FourSeat *p=&four_seats[seat];
             if(!p->player.body[0] || p->player.body[4]==3)continue;
+            unsigned incoming=p->player.body[4]==1 && !p->player.body[5] &&
+                p->player.body[0x67]==255 && !p->player.body[0xC0];
+            uint8_t arrival_lock=psx_mod_read_byte(PLAY+0x1C);
             four_enter(seat);project(FOUR_CAMERA,p->camera,sizeof p->camera);
             uint16_t buttons=(uint16_t)~sio_get_pad_buttons_slot((int)seat);
             uint16_t input=(uint16_t)((buttons<<8)|(buttons>>8));
             psx_mod_write_half(PAD,input);psx_mod_write_half(PAD+2,p->previous);
             psx_mod_write_half(PAD+4,(uint16_t)(input&~p->previous));p->previous=input;
-            guest(cpu,0x80035EF0u,0,0);guest(cpu,0x80021C14u,0,0);guest(cpu,0x800311ECu,0,0);
-            guest(cpu,0x80021340u,0,0);guest(cpu,0x8002C614u,PLAYER,0);
-            guest(cpu,0x80021D84u,0,0);guest(cpu,0x80021CC8u,0,0);
+            /* Added heroes are synthetic gameplay work, not three extra
+             * retail worlds competing for one PSX frame budget. ENHANCED
+             * runs the native pass at this boundary without charging its
+             * CPU work again; actual device time remains canonical. A bounded
+             * wait still becomes charged, so device polls cannot hang. */
+#if PSX_EXECUTION_ENHANCED
+            int charged=0;uint64_t cycles=0;
+            psx_mod_call_guest_uncharged_counted(cpu,FOUR_PLAYER_PASS,cpu->gpr[31],0,0,0,0,
+                250000u,&charged,&cycles);
+            psx_mod_counter_add("mmx4.coop4.extra-player-cycles",cycles);
+            if(charged)psx_mod_counter_add("mmx4.coop4.extra-player-budget-fallback",1);
+#else
+            four_player_pass(cpu,FOUR_PLAYER_PASS);
+#endif
             four_leave();project(PAD,pad,sizeof pad);project(FOUR_CAMERA,camera,sizeof camera);
+            if(incoming)psx_mod_write_byte(PLAY+0x1C,arrival_lock);
             psx_mod_counter_add("mmx4.coop4.native-player-ticks",1);
         }
         four_first();
@@ -224,22 +314,149 @@ static void four_tick(CPUState *cpu,uint32_t address) {
 }
 static int four_camera_update(CPUState *cpu,uint32_t address) {
     if(four_camera_call || projected || !enrolled || failed || psx_mod_read_byte(PLAY)!=6)return 0;
-    four_camera_call=1;
+    four_camera_call=1;four_first();
+    int scene=four_free_scene_owner();unsigned owner=scene>=0?(unsigned)scene:0;
+    if(owner!=four_camera_owner) {
+        /* A departing scene owner must not leave a distant P1 in that
+         * owner's camera for one frame: native27BE4 would clamp P1 through
+         * terrain. New admissions keep their authored bounds and start from
+         * the entrant's real origins; a return restores P1's complete view. */
+        if(scene<0)project(FOUR_CAMERA,four_seats[0].camera,sizeof four_seats[0].camera);
+        else for(unsigned layer=0;layer<3;++layer)
+            project(FOUR_CAMERA+layer*0x54+8,four_seats[owner].camera+layer*0x54+8,20);
+    }
+    four_camera_owner=owner;
+    if(owner)four_enter(owner);
     uint32_t result=guest(cpu,address,cpu->gpr[4],cpu->gpr[5]);
-    uint8_t camera[0xFC];capture(FOUR_CAMERA,camera,sizeof camera);four_first();
-    memcpy(four_seats[0].camera,camera,sizeof camera);
-    for(unsigned seat=1;seat<four_roster.count;++seat) {
+    guest(cpu,0x80027D40u,0,0);guest(cpu,0x800281E8u,0,0);
+    uint8_t camera[0xFC];capture(FOUR_CAMERA,camera,sizeof camera);
+    if(owner)four_leave();four_first();
+    memcpy(four_seats[owner].camera,camera,sizeof camera);
+    for(unsigned seat=0;seat<four_roster.count;++seat)if(seat!=owner) {
         FourSeat *p=&four_seats[seat];
-        four_enter(seat);
+        unsigned free_scene=(unsigned)four_free_scene_for(seat);
+        if(seat)four_enter(seat);
         /* Global stage bounds/enabled state follow the world; each seat keeps
          * the native current/previous/parallax origins from its last update. */
-        uint8_t view[0xFC];memcpy(view,camera,sizeof view);
-        for(unsigned layer=0;layer<3;++layer)
+        uint8_t view[0xFC];memcpy(view,free_scene?p->camera:camera,sizeof view);
+        if(!free_scene)for(unsigned layer=0;layer<3;++layer)
             memcpy(view+layer*0x54+8,p->camera+layer*0x54+8,20);
-        project(FOUR_CAMERA,view,sizeof view);guest(cpu,address,cpu->gpr[4],cpu->gpr[5]);
-        capture(FOUR_CAMERA,p->camera,sizeof p->camera);four_leave();project(FOUR_CAMERA,camera,sizeof camera);
+        project(FOUR_CAMERA,view,sizeof view);
+        uint8_t freeze=free_scene?psx_mod_read_byte(PLAY+0x10):0;
+        if(freeze)psx_mod_write_byte(PLAY+0x10,0);
+        /* Private follow/parallax work belongs to the synthetic seat, just
+         * like its extra controller pass. The canonical camera stays charged. */
+#if PSX_EXECUTION_ENHANCED
+        int charged=0;uint64_t cycles=0;
+        psx_mod_call_guest_uncharged_counted(cpu,FOUR_CAMERA_PASS,cpu->gpr[31],0,0,0,0,
+            100000u,&charged,&cycles);
+        psx_mod_counter_add("mmx4.coop4.extra-camera-cycles",cycles);
+        if(charged)psx_mod_counter_add("mmx4.coop4.extra-camera-budget-fallback",1);
+#else
+        guest(cpu,address,cpu->gpr[4],cpu->gpr[5]);
+        guest(cpu,0x80027D40u,0,0);guest(cpu,0x800281E8u,0,0);
+#endif
+        if(freeze)psx_mod_write_byte(PLAY+0x10,freeze);
+        capture(FOUR_CAMERA,p->camera,sizeof p->camera);
+        if(seat)four_leave();else four_first();
+        project(FOUR_CAMERA,camera,sizeof camera);
     }
     four_camera_call=0;four_diagnostics();return mmx4_coop_finish(cpu,result);
+}
+static void four_camera_pass(CPUState *cpu,uint32_t address) {
+    (void)address;
+    guest(cpu,0x80027850u,0,0);
+    guest(cpu,0x80027D40u,0,0);guest(cpu,0x800281E8u,0,0);
+}
+static int four_native_door(CPUState *cpu,uint32_t address) {
+    if(four_door_call || projected || !enrolled || failed || psx_mod_local_view_scope() ||
+       psx_mod_read_byte(PLAY)!=6)return 0;
+    uint32_t actor=cpu->gpr[4];
+    if(actor<0x80165A30u || actor>=0x80165A30u+32u*0x8Cu ||
+       (actor-0x80165A30u)%0x8Cu || psx_mod_read_byte(actor+1)!=8)return 0;
+    four_door_call=1;four_first();
+    if(four_door.actor==actor && (!psx_mod_read_byte(actor) || !psx_mod_read_byte(actor+4)))
+        memset(&four_door,0,sizeof four_door);
+    unsigned owner=four_door.actor==actor?four_door.owner:0;
+    if(!four_door.actor && psx_mod_read_byte(actor+4)==1 && !psx_mod_read_byte(actor+5)) {
+        /* The retail query is read-only. Prefer the first living hero who
+         * actually touches the gate, including when P1 is already dead. */
+        for(unsigned seat=0;seat<four_roster.count;++seat)if(four_alive(seat)) {
+            if(seat)four_enter(seat);
+            unsigned hit=guest(cpu,0x800C1E7Cu,actor,0);
+            if(seat)four_leave();
+            if(hit) {owner=seat;break;}
+        }
+    }
+    if(owner)four_enter(owner);
+    unsigned old_gate=psx_mod_read_byte(PLAYER+0xC4);
+    uint32_t result=guest(cpu,address,actor,cpu->gpr[5]);
+    unsigned new_gate=psx_mod_read_byte(PLAYER+0xC4);
+    uint32_t x=psx_mod_read_word(PLAYER+8),y=psx_mod_read_word(PLAYER+12);
+    uint32_t box=psx_mod_read_word(PLAYER+0x68);
+    if(owner)four_leave();
+    if(!four_door.actor && !old_gate && new_gate) {
+        four_first();four_door.actor=actor;four_door.owner=owner;
+        for(unsigned seat=0;seat<four_roster.count;++seat)if(four_alive(seat)) {
+            four_door.participants|=1u<<seat;
+            uint32_t own_box=le32(four_body(seat)+0x68);
+            if(box && own_box)four_door.feet[seat]=(int8_t)(
+                (int8_t)psx_mod_read_byte(box+1)+psx_mod_read_byte(box+3)-
+                (int8_t)psx_mod_read_byte(own_box+1)-psx_mod_read_byte(own_box+3));
+        }
+        psx_mod_counter_add("mmx4.coop4.group-door-admissions",1);
+    }
+    if(four_door.actor==actor) {
+        unsigned phase=psx_mod_read_byte(actor+5);
+        int release=!new_gate || psx_mod_read_byte(actor+4)!=1;
+        for(unsigned seat=0;seat<four_roster.count;++seat) {
+            if(seat==owner || !(four_door.participants&(1u<<seat)) || !four_alive(seat))continue;
+            if(seat)four_enter(seat);
+            /* A shared room boundary gathers the team at the entering hero's
+             * feet. Keep each native body, HP, animation and inventory. The
+             * retail owner alone advances the door animation and world. */
+            uint32_t py=y+(uint32_t)(four_door.feet[seat]*65536);
+            psx_mod_write_word(PLAYER+8,x);psx_mod_write_word(PLAYER+12,py);
+            psx_mod_write_word(PLAYER+0x18,x);psx_mod_write_word(PLAYER+0x1C,py);
+            if(release) {
+                psx_mod_write_byte(PLAYER+0xC4,0);guest(cpu,0x80035EA4u,PLAYER,0);
+            }else {
+                if(!psx_mod_read_byte(PLAYER+0xC4))psx_mod_write_byte(PLAYER+0xC4,1);
+                if(phase>=2)psx_mod_write_word(PLAYER+0x68,0);
+            }
+            if(seat)four_leave();
+        }
+        if(release) {
+            memset(&four_door,0,sizeof four_door);
+            psx_mod_counter_add("mmx4.coop4.group-door-releases",1);
+        }
+    }
+    four_door_call=0;return mmx4_coop_finish(cpu,result);
+}
+static int four_normal(CPUState *cpu,uint32_t address) {
+    if(four_normal_call || projected || !enrolled || failed)return 0;
+    four_first();unsigned eligible=0;int owner=-1;
+    for(unsigned seat=0;seat<four_roster.count;++seat) {
+        uint16_t input=mmx4_coop_input(seat);
+        if(four_alive(seat)) {
+            eligible|=1u<<seat;
+            if(owner<0 && (input&~four_menu_previous[seat]&0x0800u))owner=(int)seat;
+        }
+        four_menu_previous[seat]=input;
+    }
+    if(psx_mod_read_byte(PLAY+0x1C) || psx_mod_read_byte(PLAY+0x10) ||
+       psx_mod_read_byte(PLAY+0x0F) || psx_mod_read_byte(0x80141BDCu))owner=-1;
+    uint8_t pad[6];capture(PAD,pad,sizeof pad);
+    uint16_t edge=psx_mod_read_half(PAD+4)&(uint16_t)~0x0800u;
+    if(owner>=0)edge|=0x0800u;
+    psx_mod_write_half(PAD+4,edge);four_normal_call=1;
+    uint32_t result=guest(cpu,address,cpu->gpr[4],cpu->gpr[5]);four_normal_call=0;
+    project(PAD,pad,sizeof pad);
+    if(owner>=0 && psx_mod_read_byte(PLAY)==6 && psx_mod_read_byte(PLAY+1)==2) {
+        mmx4_coop_personal_begin(four_roster.count,eligible);
+        psx_mod_counter_add("mmx4.coop4.personal-menu-opens",1);
+    }
+    four_diagnostics();return mmx4_coop_finish(cpu,result);
 }
 static int four_record_index(uint32_t record,unsigned *index) {
     if(!four_placement_table || record<four_placement_table || (record-four_placement_table)%8u ||
@@ -459,6 +676,14 @@ static int four_death(CPUState *cpu,uint32_t address) {
 static void four_fixture(CPUState *cpu,uint32_t address) {
     (void)cpu;(void)address;
     if(!diagnostic || projected || !enrolled || psx_mod_netplay_is_active())return;
+    if(four_fixture_protection) {
+        four_first();
+        for(unsigned i=0;i<four_roster.count;++i)if((four_fixture_protection&(1u<<i)) && four_alive(i)) {
+            if(i)four_enter(i);
+            psx_mod_write_byte(PLAYER+0x61,127);
+            if(i)four_leave();
+        }
+    }
     uint32_t sequence=psx_mod_read_word(diagnostic+0x30u);
     if(!sequence || sequence==psx_mod_read_word(diagnostic+0x44u))return;
     unsigned command=psx_mod_read_word(diagnostic+0x34u),seat=psx_mod_read_word(diagnostic+0x38u);
@@ -471,6 +696,16 @@ static void four_fixture(CPUState *cpu,uint32_t address) {
             put32(body+8,x<<16);put32(body+12,y<<16);put32(body+0x18,x<<16);put32(body+0x1C,y<<16);
             accepted=1;
         }else if(command==2 && x<=127) {body[0x5C]=(uint8_t)x;accepted=1;}
+        else if(command==3 && x<16) {four_fixture_protection=x;accepted=1;}
+        else if(command==4 && x<=32) {
+            /* Offline menu fixture: acquire two E-tanks and seed energy.
+             * Cursor selection, healing and consumption remain native. */
+            psx_mod_write_half(PLAY+0x5A,psx_mod_read_half(PLAY+0x5A)|0x3000u);
+            if(seat)four_enter(seat);
+            psx_mod_write_byte(PLAY+0x5C,(uint8_t)(0x80u|x));
+            psx_mod_write_byte(PLAY+0x5D,(uint8_t)(0x80u|x));
+            if(seat)four_leave();accepted=1;
+        }
         if(!seat)project_player(&first);
     }
     psx_mod_write_word(diagnostic+0x48u,accepted);psx_mod_write_word(diagnostic+0x44u,sequence);
@@ -520,6 +755,7 @@ static int four_render(CPUState *cpu,uint32_t address) {
     rendering=four_render_call=0;return mmx4_coop_finish(cpu,result);
 }
 static int four_world_draw(CPUState *cpu,uint32_t address) {
+    if(mmx4_coop_personal_world(cpu,address))return 1;
     if(four_world_draw_call || projected || !enrolled || failed)return 0;
     four_world_draw_call=1;memset(four_draw_used,0,sizeof four_draw_used);
     uint32_t result=guest(cpu,address,cpu->gpr[4],cpu->gpr[5]);four_world_draw_call=0;
@@ -539,6 +775,17 @@ static int four_hud(CPUState *cpu,uint32_t address) {
 }
 static int four_draw_view(CPUState *cpu,void *user,uint32_t alpha) {
     (void)alpha;
+    if(mmx4_coop_lifecycle_personal_menus()) {
+        if(local_split && four_roster.count==3 && four_grid_cell>=2) {
+            /* One native-width menu centered in P3's double-width pane.
+             * The two captures clip opposite halves of the same menu. */
+            GpuDrawArea draw;gpu_get_draw_area(&draw);
+            int x=draw.offset_x+(four_grid_cell==2?160:-160);
+            gpu_set_gp0_source(0);
+            gpu_write_gp0(0xE5000000u|((uint32_t)x&0x7FFu)|((uint32_t)draw.offset_y&0x7FFu)<<11);
+        }
+        return draw_local_view(cpu,user,0);
+    }
     uint32_t buffer=*(uint32_t*)user;
     project(FOUR_CAMERA,four_seats[local_view_seat].camera,sizeof four_seats[0].camera);
     if(local_split && four_roster.count==3 && four_grid_cell>=2)
@@ -576,21 +823,24 @@ static unsigned four_view_survivor(unsigned seat) {
 static int four_draw_grid(CPUState *cpu,void *user,uint32_t cell) {
     FourViewContext context;four_view_save(&context);
     four_grid_cell=cell;
-    local_view_seat=four_view_survivor(four_roster.count==3 && cell==3?2:cell);
+    local_view_seat=four_roster.count==3 && cell==3?2:cell;
+    if(!mmx4_coop_lifecycle_personal_menus())local_view_seat=four_view_survivor(local_view_seat);
     int ok=four_draw_view(cpu,user,0);
     four_view_restore(&context);
     return ok;
 }
 static int four_present(CPUState *cpu,uint32_t address) {
+    int menu=mmx4_coop_lifecycle_personal_menus();
+    int returning=mmx4_coop_lifecycle_resuming_world();
     if(four_present_call || projected || four_busy || failed || !enrolled ||
-       psx_mod_read_byte(PLAY)!=6 || psx_mod_read_byte(PLAY+1) ||
+       psx_mod_read_byte(PLAY)!=6 || (psx_mod_read_byte(PLAY+1) && !menu && !returning) ||
        psx_mod_read_byte(PLAY+0x0Fu) || cpu->gpr[31]!=0x80012080u)return 0;
     uint32_t buffer=psx_mod_read_word(0x80142F80u);if(cpu->gpr[4]!=buffer+0x9Cu)return 0;
     four_present_call=1;
     uint32_t result=guest(cpu,address,cpu->gpr[4],cpu->gpr[5]);guest(cpu,0x800EA20Cu,0,0);
     int port=psx_netplay_local_port();local_view_seat=port>=0 && (unsigned)port<four_roster.count?(unsigned)port:0;
     four_first();
-    local_view_seat=four_view_survivor(local_view_seat);
+    if(!menu)local_view_seat=four_view_survivor(local_view_seat);
     uint32_t before=four_digest();
     FourViewContext context;four_view_save(&context);
     PSXModRenderPass rect={sizeof rect,0,psx_mod_read_half(buffer+0x14u),psx_mod_read_half(buffer+0x16u),
@@ -606,6 +856,20 @@ static int four_present(CPUState *cpu,uint32_t address) {
     psx_mod_counter_add(ok?"mmx4.coop4.local-view-committed":"mmx4.coop4.local-view-refused",1);
     four_present_call=0;return mmx4_coop_finish(cpu,result);
 }
+static void four_boundary(CPUState *cpu,uint32_t address) {
+#ifndef PSX_NO_DEBUG_TOOLS
+    four_fixture(cpu,address);
+#else
+    (void)cpu;(void)address;
+#endif
+    /* Consume Start while the personal menu owns input. A held resume key
+     * must not become a fresh gameplay pause edge on the first world frame. */
+    if(psx_mod_read_byte(PLAY)==6 && psx_mod_read_byte(PLAY+1)==2)
+        for(unsigned seat=0;seat<four_roster.count;++seat)four_menu_previous[seat]=mmx4_coop_input(seat);
+    /* READY/arrival draws do not always pass through the ordinary world
+     * renderer. Packet arenas still belong to this frame's buffer. */
+    memset(four_draw_used,0,sizeof four_draw_used);four_diagnostics();
+}
 static void four_activate(void) {
     /* Reuse bounded native asset/audio initialization, without activating any
      * two-player gameplay hooks. Repack ARC reservations to leave room for a
@@ -618,9 +882,17 @@ static void four_activate(void) {
     if(!mmx4_roster_parse(&four_roster,values)) {failed=1;return;}
     memset(four_seats,0,sizeof four_seats);memset(four_contacts,0,sizeof four_contacts);
     four_contact_count=four_busy=four_current=four_collision=four_camera_call=four_render_call=four_present_call=0;
+    four_controls_call=0;
+    four_camera_owner=0;
     four_actor_call=four_pending=four_function=four_reaction=four_reaction_actor=0;
     four_scan_call=four_supplemental=four_bounds_call=four_placement_table=0;
     four_death_call=0;
+    four_normal_call=0;memset(four_menu_previous,0,sizeof four_menu_previous);
+#ifndef PSX_NO_DEBUG_TOOLS
+    four_fixture_protection=0;
+#endif
+    memset(&four_door,0,sizeof four_door);four_door_call=0;
+    mmx4_coop_personal_reset();
     four_allocation_call=four_effect_call=four_world_draw_call=0;
     memset(four_effect_owner,0,sizeof four_effect_owner);
     memset(four_visited,0,sizeof four_visited);
@@ -637,14 +909,17 @@ PSX_MOD_CONSTRUCTOR(mmx4_register_coop4) {
         0,0,1,1u,"mmx4.widescreen",four_digest,1,FOUR_ID,"coop","cameras","individual",1,3,4,"p4"};
     psx_mod_register_netplay_profile(&profile);
     psx_mod_register_activation_plugin(FOUR_ID,four_activate);
+    mmx4_coop_personal_register(FOUR_ID);
+    psx_mod_register_function_filter_plugin(FOUR_ID,0x8001FF8Cu,four_normal);
     psx_mod_register_function_entry_plugin(FOUR_ID,0x80035240u,four_reset);
     psx_mod_register_function_entry_plugin(FOUR_ID,0x80012EB8u,four_canonical_form);
     psx_mod_register_function_entry_plugin(FOUR_ID,0x800361F8u,four_canonical_form);
     psx_mod_register_function_entry_plugin(FOUR_ID,0x80021340u,four_tick);
-#ifndef PSX_NO_DEBUG_TOOLS
-    psx_mod_register_function_entry_plugin(FOUR_ID,0x8001FF50u,four_fixture);
-#endif
+    psx_mod_register_function_filter_plugin(FOUR_ID,0x800311ECu,four_controls);
+    psx_mod_register_function_entry_plugin(FOUR_ID,0x8001FF50u,four_boundary);
     psx_mod_register_function_filter_plugin(FOUR_ID,0x80027850u,four_camera_update);
+    psx_mod_register_function_filter_plugin(FOUR_ID,0x800C1994u,four_native_door);
+    psx_mod_register_function_filter_plugin(FOUR_ID,0x800EA4D0u,retained_upload);
     psx_mod_register_function_filter_plugin(FOUR_ID,0x800241E8u,four_render);
     psx_mod_register_function_filter_plugin(FOUR_ID,0x80023D68u,four_world_draw);
     psx_mod_register_function_filter_plugin(FOUR_ID,0x80024334u,four_primary_sprite);
@@ -667,6 +942,8 @@ PSX_MOD_CONSTRUCTOR(mmx4_register_coop4) {
     psx_mod_register_instruction_plugin(FOUR_ID,0x80021300u,0x0040F809u,four_redirect_actor);
     psx_mod_register_instruction_plugin(FOUR_ID,0x80021518u,0x0040F809u,four_redirect_actor);
     psx_mod_register_guest_function_plugin(FOUR_ID,FOUR_ACTOR_DISPATCH,four_update_actor);
+    psx_mod_register_guest_function_plugin(FOUR_ID,FOUR_PLAYER_PASS,four_player_pass);
+    psx_mod_register_guest_function_plugin(FOUR_ID,FOUR_CAMERA_PASS,four_camera_pass);
     const uint32_t reactions[]={0x80050998u,0x80071DE4u,0x80072514u,0x800753FCu,0x80082644u,0x800850DCu,0x80091344u};
     for(unsigned i=0;i<sizeof reactions/sizeof reactions[0];++i)
         psx_mod_register_instruction_plugin(FOUR_ID,reactions[i],0,four_attack_character);
