@@ -15,6 +15,17 @@ set(PSXRECOMP_V4_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/psxrecomp-v4" CACHE PATH
 # generic runtime defaults netplay off; select it before including that runtime.
 option(PSX_NETPLAY "Build X4 netplay and co-op profile support" ON)
 option(MMX4_COOP_NETPLAY_DEBUG "Development-only synchronized co-op cheats" OFF)
+# Use painter-ordered textured batches in the experimental enhanced build.
+# Keep the faithful batching tier available through either explicit LLE or
+# a fresh REFERENCE build; this is a build selection, never a live setting.
+if(NOT DEFINED PSX_GL_BATCH_IMPL)
+    string(TOUPPER "${PSX_EXECUTION_PROFILE}" _mmx4_execution_profile)
+    if(_mmx4_execution_profile STREQUAL "REFERENCE")
+        set(PSX_GL_BATCH_IMPL "LLE" CACHE STRING "OpenGL textured batching: LLE or HLE")
+    else()
+        set(PSX_GL_BATCH_IMPL "HLE" CACHE STRING "OpenGL textured batching: LLE or HLE")
+    endif()
+endif()
 include("${PSXRECOMP_V4_ROOT}/runtime/runtime.cmake")
 
 # The current recompiler emits the game as split translation units. Keep the
