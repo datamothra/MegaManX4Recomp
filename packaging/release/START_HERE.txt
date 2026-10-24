@@ -1,6 +1,6 @@
 MegaManX4Recomp - Mega Man X4, recompiled
 ==========================================
-1.0.4 Stable Public Beta
+1.0.6 Stable Public Beta
 
 WHAT YOU NEED
   Your own original, unmodified Mega Man X4 (USA, SLUS-00561) disc image.
@@ -17,7 +17,7 @@ WHAT YOU NEED
   You may optionally select your own legally obtained SCPH1001.BIN instead.
 
 FIRST RUN
-  1. Run MegaManX4Recomp.exe on Windows. The 1.0.4 Linux AppImage is pending.
+  1. Run MegaManX4Recomp.exe on Windows, or the .AppImage on Linux.
   2. Set the Disc row to your Mega Man X4 image.
   3. Custom Renderer / Adaptive and Resident Asset Loading default on.
      Internal resolution defaults to 1080p. Interpolation is unavailable;
@@ -93,8 +93,11 @@ OPTIONAL LANGUAGES
 
   For Japanese media, supply your own Rockman X4 (Japan, SLPS-00902) disc
   under Mods -> Japanese Media. Choose Japanese FMVs, Japanese voices
-  and the Rockman X4 title screen independently. No Japanese disc is bundled.
-  See docs/LOCALIZATION.md for supported images, setup and current limits.
+  and the Rockman X4 title screen independently. Japanese FMVs offers
+  No subtitles, English or Spanish; only the selected source is needed.
+  Fan-subtitled movies are imported locally with the included
+  tools/import_fmv_subtitles.py. No Japanese disc or movie pack is bundled.
+  See docs/LOCALIZATION.md and docs/FMV_SUBTITLES.md for setup and credits.
 
 WHERE THINGS LIVE
   saves/     memory cards

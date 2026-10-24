@@ -1,4 +1,28 @@
-# Mega Man X4 Recompiled - 1.0.5 Stable Public Beta
+# Mega Man X4 Recompiled - 1.0.6 Stable Public Beta
+
+- Fixed Sigma 1's camera staying trapped near the first boss door after Player 1 dies. The surviving Player 2 can descend the ladder and land on the lower platform normally.
+- Fixed Player 2 failing to trigger the platform-breaking fireballs at the beginning of Magma Dragoon's second area. The original fireball timers and terrain destruction now run with either player leading.
+- Corrected Magma Dragoon's placed fireballs using the distant allocating player's camera for their shake guard. Nearby impacts now retain the correct view's native shake timing.
+- Diagnostic recording remains optional and **off by default**. Public packages omit CD Speed, Fast Loading and developer cheats. The original, unmodified USA disc remains required.
+
+**Windows x64 ZIP and Linux x86_64 AppImage. Both netplay peers must update.**
+Native memory-card saves carry forward; emulator save states are build-specific.
+Japanese movies, voices and title art, plus Spanish and Brazilian Portuguese
+text, retain their existing independent mod options.
+
+Bounded native regressions cover both character rosters, either leader's pillar
+sequence, both survivor roles at the Sigma ladder, nearby fireball shake and
+Dragoon's upper boss-entry camera. The pillar fixture uses position/damage
+protection while the original actors destroy terrain; it does not qualify
+ordinary traversal survival on a collapsing pillar. See
+[stage evidence and limits](docs/COOP_105_STAGE_FOLLOWUP.md).
+
+The wider Magma part 1 end audit and the earlier unreproduced process exit
+remain open. This release does not claim a new full-campaign playthrough,
+fresh online gameplay or cross-OS netplay qualification. Language/movie mods
+retain their existing offline scope, including local co-op.
+
+## Previous v1.0.5 Stable Public Beta
 
 - **One Japanese FMVs mod**, with **Subtitles: No subtitles / English / Español**. Only the selected source is required. English credits acediez/Hondoori; Spanish credits El Retro Dan and the underlying Undub contributors. Original readmes and full attribution ship with both packages. Movie packs are imported locally and remain external to the public download.
 - Fixed Sigma 1's waiting door disappearing during Nova Strike and its stair-return camera softlock. Retreating and re-entering the first door now preserves the partner's position and room limits.
