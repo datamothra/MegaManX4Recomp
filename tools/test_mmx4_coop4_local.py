@@ -231,6 +231,10 @@ with (root / 'runtime.log').open('wb') as log:
         report.update(render_stats=stats, counters=counters, grid=grid,
                       presents=runtime.request('gl_present_ring', n=20))
         assert counters.get('mmx4.coop4.local-grid-committed', 0) > 10, counters
+        assert counters.get('mmx4.renderer.activated') == 1, counters
+        assert all(counters.get(f'mmx4.renderer.layer{i}-tiles', 0) > 0 for i in range(3)), counters
+        assert not counters.get('mmx4.renderer.arena-failed', 0), counters
+        assert runtime.request('gpu_state')['ws']['nw_extra'] == 0
         assert not counters.get('mmx4.coop4.local-view-state-leak', 0), counters
         assert stats['verify_checks'] > 0 and not any(stats[k] for k in
             ('verify_mismatch', 'aborted', 'watchdog', 'vram_leaks')), stats
