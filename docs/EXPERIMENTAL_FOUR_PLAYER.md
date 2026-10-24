@@ -1,7 +1,7 @@
 # Three / four-player co-op spike
 
 This branch starts from stable 1.0.6. It adds a separate, default-off
-`mmx4.coop4` mod. It is an experimental online mode, with an individual
+`mmx4.coop4` mod. Offline play uses independent split cameras. Online play has an individual
 4:3 camera and HUD for each participating peer. All peers must enable this
 mod, use the same build, and agree on the roster before starting.
 
@@ -62,6 +62,12 @@ forced mod suppression, profile selection and texture reuse across eight
 arenas. Linux checks compile the portable core/package code and run roster,
 profile and legacy netplay-policy tests; they are not a Linux gameplay audit.
 
+Local three/four-player checks exercise separate seat input, a leading last
+seat, the full canvas through resize/refusal/pause/resume, and composed images.
+Both layouts pass render-restore verification with no state leaks, watchdogs
+or aborted passes. Framework tests cover declined/capture-failed cells and a
+watchdog in the last cell, including recovery without partial publication.
+
 Full campaign, boss/door/script parity, vehicles, all weapon upgrades,
 independent personal menus, Internet/ICE, spectators, cross-OS/CPU netplay and
 long-session cache pressure remain unqualified. The existing two-player
@@ -69,10 +75,15 @@ engine's stage-specific fixes do not automatically cover this separate engine.
 P1 retains the shared campaign/menu role. P2–P4 enroll after P1's initial READY
 arrival has installed the landing geometry. This is a spike, not a stable release.
 
-Local three/four-player split presentation is deferred. The requested future
-layout is an 8:6 composition: P1 top left, P2 top right; P3 spans the bottom in
-three-player mode, or uses bottom left with P4 bottom right. There is no split
-option in the current mod. Offline development displays the canonical P1 view.
+Local play uses an 8:6 canvas: P1 top left, P2 top right; P3 spans the bottom in
+three-player mode, or uses bottom left with P4 bottom right. The bottom camera
+in three-player mode covers twice the horizontal world area. It is drawn as two
+contiguous native-width tiles from one camera, preserving pixel and glyph shape,
+with one HUD at the left edge. Placement/culling includes that wider visible area.
+All four tiles must succeed before a new frame is published. Each draw restores
+the same simulation checkpoint; drawing more views never ticks the world again.
+Shared menus/movies and unavailable private draws use fresh canonical images in
+the same canvas. Local unified play is deferred and has no selectable option.
 
 ## Reproduce the bounded online checks
 
@@ -89,3 +100,10 @@ python tools/test_mmx4_coop4_netplay.py --exe build/MegaManX4Recomp.exe --disc "
 Each report directory must be new. Reports, runtime logs and own-view images
 are evidence; the copied executables, assets, private cards and caches are
 disposable after review. No original disc is copied or included in the build.
+
+Local split checks use the same hidden, muted isolation:
+
+```powershell
+python tools/test_mmx4_coop4_local.py --exe build/MegaManX4Recomp.exe --disc "path/to/Mega Man X4.cue" --players 4 --report-dir qa-local-four
+python tools/test_mmx4_coop4_local.py --exe build/MegaManX4Recomp.exe --disc "path/to/Mega Man X4.cue" --players 3 --report-dir qa-local-three
+```
