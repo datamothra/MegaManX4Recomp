@@ -163,6 +163,9 @@ try:
     assert all(s['verify_mismatch']==0 and s['aborted']==0 for s in report['render_stats']),report['render_stats']
     for counters in report['counters']:
         values={row['name']:row['count'] for row in counters['counters']}
+        assert values.get('mmx4.renderer.activated')==1,values
+        assert all(values.get('mmx4.renderer.layer'+str(i)+'-tiles',0)>0 for i in range(3)),values
+        assert not values.get('mmx4.renderer.arena-failed',0),values
         assert values.get('mmx4.coop4.local-view-committed',0)>10,values
         assert values.get('mmx4.coop4.local-view-state-leak',0)==0,values
         for seat,actor in enumerate(actors):
