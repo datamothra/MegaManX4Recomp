@@ -1,8 +1,10 @@
-# Four-player follow-up qualification, 2026-10-24
+# Initial four-player follow-up qualification, 2026-10-24
 
 Production source: game `495efa4`, framework `aaf4fb1` on the existing
-experimental branches. Later commits change only qualification scripts and
-documentation. Windows development executable SHA-256:
+experimental branches. The subsequent game commit `4446ca8` changed only
+qualification scripts and documentation. This is the earlier LLE handoff;
+[FOUR_PLAYER_RENDERING_QA.md](FOUR_PLAYER_RENDERING_QA.md) records the later
+renderer and launcher changes. Windows development executable SHA-256:
 `d745e2b59779570283cd1f335454c1f9bea77492dc6afcb195799fbe2bcdbac7`.
 The build uses ENHANCED execution, the reference LLE OpenGL batcher and native
 internal resolution. It is not a stable release.
