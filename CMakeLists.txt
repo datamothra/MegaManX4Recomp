@@ -151,6 +151,24 @@ add_custom_command(TARGET psx-runtime POST_BUILD
     VERBATIM)
 
 if(BUILD_TESTING)
+    add_executable(psx_render_pass_sandbox_test
+        "${PSXRECOMP_V4_ROOT}/runtime/tests/test_render_pass_sandbox.c"
+        "${PSXRECOMP_V4_ROOT}/runtime/src/render_pass.c"
+        "${PSXRECOMP_V4_ROOT}/runtime/src/render_pass_plan.c"
+        "${PSXRECOMP_V4_ROOT}/runtime/src/psx_cycles.c"
+        "${PSXRECOMP_V4_ROOT}/runtime/src/timers.c"
+        "${PSXRECOMP_V4_ROOT}/runtime/src/psx_video_timing.c")
+    target_include_directories(psx_render_pass_sandbox_test PRIVATE "${PSXRECOMP_V4_ROOT}/runtime/include")
+    add_test(NAME psx_render_pass_sandbox_test COMMAND psx_render_pass_sandbox_test)
+    if(NOT MSVC)
+        target_link_libraries(psx_render_pass_sandbox_test PRIVATE m)
+        add_executable(psx_render_pass_abort_test
+            "${PSXRECOMP_V4_ROOT}/runtime/tests/test_render_pass_abort.c"
+            "${PSXRECOMP_V4_ROOT}/runtime/src/render_pass.c"
+            "${PSXRECOMP_V4_ROOT}/runtime/src/psx_cycles.c")
+        target_include_directories(psx_render_pass_abort_test PRIVATE "${PSXRECOMP_V4_ROOT}/runtime/include")
+        add_test(NAME psx_render_pass_abort_test COMMAND psx_render_pass_abort_test)
+    endif()
     add_executable(psx_mod_profiles_test
         "${PSXRECOMP_V4_ROOT}/runtime/tests/test_mod_netplay_profiles.c"
         "${PSXRECOMP_V4_ROOT}/runtime/src/mod_netplay.c"

@@ -148,6 +148,9 @@ int main(int argc, char** argv) {
 
     // Four-player roster owns its forms; conflicting packages cannot leak in.
     if(manager.feature_enabled("mmx4.coop4","coop"))return fail("experimental co-op defaults off");
+    if(manager.feature_option_value("mmx4.coop4","coop","local_cameras")!="split" ||
+       manager.set_feature_option("mmx4.coop4","coop","local_cameras","unified",&error))
+        return fail("experimental local cameras must use independent split views");
     const char* defaults[]={"x","zero","ultimate_x","black_zero"};
     const char* seats[]={"p1","p2","p3","p4"};
     for(unsigned i=0;i<4;++i)
