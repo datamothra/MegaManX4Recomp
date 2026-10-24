@@ -8,6 +8,7 @@
 #include "mmx4_coop_assets.h"
 #include "mmx4_coop_memory.h"
 #include "mmx4_coop_texture_cache.h"
+#include "mmx4_coop_hud.h"
 #include "mmx4_coop_internal.h"
 #include "mmx4_diagnostics.h"
 #include "mmx4_coop_debug_protocol.h"
