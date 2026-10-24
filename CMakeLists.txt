@@ -100,6 +100,7 @@ set(MMX4_COOP_CONTRACT_FILES
     src/mods/mmx4_coop_internal.h src/mods/mmx4_coop_assets.h
     src/mods/mmx4_coop_memory.c src/mods/mmx4_coop_memory.h
     src/mods/mmx4_coop_texture_cache.c src/mods/mmx4_coop_texture_cache.h
+    src/mods/mmx4_coop_hud.c src/mods/mmx4_coop_hud.h
     src/mods/mmx4_coop_snapshot.h
     src/mods/mmx4_coop_roster.c src/mods/mmx4_coop_roster.h src/mods/mmx4_coop4.inc
     src/mods/mmx4_cheats.c src/mods/mmx4_cheats.h
@@ -278,6 +279,9 @@ if(BUILD_TESTING)
     add_executable(mmx4_coop_views_test tests/test_mmx4_coop_views.c src/mods/mmx4_coop_views.c)
     target_include_directories(mmx4_coop_views_test PRIVATE src/mods "${PSXRECOMP_V4_ROOT}/runtime/include")
     add_test(NAME mmx4_coop_views_test COMMAND mmx4_coop_views_test)
+    add_executable(mmx4_coop_hud_test tests/test_mmx4_coop_hud.c src/mods/mmx4_coop_hud.c)
+    target_include_directories(mmx4_coop_hud_test PRIVATE src/mods)
+    add_test(NAME mmx4_coop_hud_test COMMAND mmx4_coop_hud_test)
     add_executable(mmx4_coop_split_test tests/test_mmx4_coop_split.c
         src/mods/mmx4_coop_split.c src/mods/mmx4_coop_views.c src/mods/mmx4_coop_memory.c)
     target_include_directories(mmx4_coop_split_test PRIVATE src/mods "${PSXRECOMP_V4_ROOT}/runtime/include")

@@ -108,3 +108,6 @@ real per-seat movement and attacks. No simulation state or success flag is
 written to bypass arrival. Evidence: `labels-production-qa-layers-net4-r2`.
 
 Four final Release LAN peers pass native enrollment, per-seat movement/attacks, X charging, P4 leading camera, private cursor ownership and resume. All 107 common core/mod CRC samples match through tick 3424. Every peer has the full authored background arena active. The ordinary liveness and foreground guards remain enabled; peers use native input and read-only observations. Evidence: `labels-production-qa-layers-net4-r3/report.json`.
+
+The subsequent red damage-trail correction and latest artifact are documented
+in [FOUR_PLAYER_HUD_QA.md](FOUR_PLAYER_HUD_QA.md).

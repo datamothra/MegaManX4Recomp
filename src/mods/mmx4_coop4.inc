@@ -778,6 +778,23 @@ static int four_hud(CPUState *cpu,uint32_t address) {
      * Its one HUD belongs to the left edge of the complete wide view. */
     if(local_split && four_roster.count==3 && four_grid_cell==3 && psx_mod_local_view_scope())
         return mmx4_coop_finish(cpu,0);
+    if(!hud_call && !projected && enrolled && !failed && !psx_mod_local_view_scope() && world_draw_visible()) {
+        hud_call=1;
+        uint32_t result=guest(cpu,address,cpu->gpr[4],cpu->gpr[5]);
+        /* The retail HUD commits P1's delayed damage trail here. Other
+         * seats draw only inside restored view transactions, so their +5D
+         * trail and +5F delay otherwise stay at their spawn values forever.
+         * Advance each at this same canonical boundary, independently of
+         * which views are drawn, refused, hidden or owned by a LAN peer. */
+        if(psx_mod_read_byte(PLAY+0x1F)) {
+            uint32_t frame=psx_mod_read_word(0x80141BD8u);
+            for(unsigned seat=1;seat<four_roster.count;++seat)
+                mmx4_coop_hud_tick(four_seats[seat].player.body,frame);
+            psx_mod_counter_add("mmx4.coop4.hud-state-ticks",1);
+        }
+        hud_call=0;
+        return mmx4_coop_finish(cpu,result);
+    }
     if(hud_call || projected || !enrolled || failed || !psx_mod_local_view_scope() || !local_view_seat)return 0;
     /* The existing HUD conversion already retains native icons and flat bars.
      * Its context calls dispatch to this engine's currently selected seat. */
