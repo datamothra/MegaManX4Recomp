@@ -109,6 +109,10 @@ referenced in place.
   lost peer liveness under concurrent build load with no preceding CRC
   disagreement. The retry uses the default timeout and passes; the failed
   receipt remains available.
+- `labels-final-online-3/report.json`: the default three-hero roster passes
+  the same native LAN movement/attack/charge, separated-camera and private
+  menu/resume checks; 113 common matching core/mod CRC samples through tick
+  3680. The default liveness timeout is retained.
 - `labels-ui-final`: screenshots from the optimized executable show the
   requested names and offline/online/offline-return option visibility.
   Diagnostic recording is unchecked. Stored roster/camera selections survive.
@@ -116,6 +120,11 @@ referenced in place.
   check passes as described above. The earlier probe's fixed pause-init delay
   was insufficient; it also stopped at an uncleared barrier. Its report is
   retained as failed and is not used to qualify the corrected run.
+
+The final independent-camera and four-menu composed images were visually
+inspected, including matching X/Zero artwork and Ultimate X's Nova Strike.
+The offline-return screenshot restores Local cameras and keeps the requested
+roster. These are bounded Intro/launcher observations, not full campaign QA.
 
 Full campaign, overlapping scenes, vehicles, Internet/ICE and cross-OS/CPU
 gameplay remain unqualified. Local unified remains deferred. Four-player
