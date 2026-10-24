@@ -3,7 +3,7 @@ id = "mmx4.coop4"
 version = "0.0.1"
 name = "Three / Four Player Co-op (Experimental)"
 author = "mstan"
-description = "Experimental unique-hero roster with independent online cameras. Local split presentation is deferred. Requires OpenGL and a fresh boot."
+description = "Experimental unique-hero roster with local split screen and independent online cameras. Requires OpenGL and a fresh boot."
 resolver = "declarative"
 channel = "experimental"
 save_compatibility = "isolated"
@@ -16,7 +16,7 @@ disc_sha256 = "3ceab06ac99add4035f912188bcbf5b16c02056f46a33d38ff0c8dbce6cb613b"
 [[feature]]
 id = "coop"
 name = "Three / Four Player Co-op"
-description = "Each online player has their own camera. Select a different form for each seat; only Player 4 can be None. Turns off two-player co-op and the separate Black Zero / Ultimate Armor code mods."
+description = "Independent local split cameras or individual online views. Select a different form for each seat; only Player 4 can be None. Turns off two-player co-op and the separate Black Zero / Ultimate Armor code mods."
 group = "Experimental"
 default_enabled = false
 
@@ -135,3 +135,14 @@ default = "individual"
 [[option.choice]]
 value = "individual"
 label = "Individual"
+
+[[option]]
+feature = "coop"
+id = "local_cameras"
+label = "Local cameras"
+description = "Four players use a 2x2 grid. With Player 4 set to None, Player 3 gets one wide camera across the bottom."
+type = "choice"
+default = "split"
+[[option.choice]]
+value = "split"
+label = "Split screen"
