@@ -715,6 +715,15 @@ static int four_primary_sprite(CPUState *cpu,uint32_t address) {
     (void)address;
     if(rendering || projected || !enrolled || failed || psx_mod_read_byte(PLAY)!=6)return 0;
     uint32_t actor=cpu->gpr[4];
+    /* The shared world retains objects for every camera. Reject a foreign
+     * view's offscreen sprites before native assembly/packet generation;
+     * otherwise distant coordinates can wrap through the GPU's 11-bit XY.
+     * Keep canonical simulation draws and screen-relative menus unchanged. */
+    if(psx_mod_local_view_scope() && !mmx4_coop_lifecycle_personal_menus() &&
+       mmx4_coop_split_sprite_outside(actor)) {
+        psx_mod_counter_add("mmx4.coop4.private-sprites-culled",1);
+        return mmx4_coop_finish(cpu,0);
+    }
     unsigned owner=four_personal_effect_owner(actor);
     if(!(owner || actor==PLAYER || actor==0x80175D58u ||
        (actor>=SHOTS && actor<SHOTS+sizeof first.shots && (actor-SHOTS)%0x9Cu==0) ||

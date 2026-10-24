@@ -1,9 +1,11 @@
-# Three / four-player co-op spike
+# Four Player Co-op spike
 
 This branch starts from stable 1.0.6. It adds a separate, default-off
 `mmx4.coop4` mod. Offline play uses independent split cameras. Online play has an individual
 4:3 camera and HUD for each participating peer. All peers must enable this
 mod, use the same build, and agree on the roster before starting.
+The launcher shows **Local cameras** offline and **Online cameras** in the
+Netplay flow. The hidden control's stored selection is preserved.
 
 | Seat | Default |
 | --- | --- |
@@ -59,6 +61,15 @@ ENHANCED execution charges the canonical world normally and runs added player
 and camera passes through the bounded uncharged native-call service. An exceeded budget
 falls back to charged execution so device waits can complete. REFERENCE builds
 keep charged native player passes. This policy is fixed by the build profile.
+
+Fresh ENHANCED builds select the existing HLE OpenGL batching tier; fresh
+REFERENCE builds retain LLE. An explicit `PSX_GL_BATCH_IMPL=LLE` build remains
+available. This is a fixed host-renderer choice, with no live cycle-scale
+override. Private world draws cull actors outside that view before assembling
+their packets; canonical simulation and screen-relative menus are excluded.
+See [FOUR_PLAYER_RENDERING_QA.md](FOUR_PLAYER_RENDERING_QA.md) for measured
+performance, renderer comparisons and the distinction between development
+qualification and the optimized playtest executable.
 
 The roster selects a separate trusted netplay profile. Three/four-seat capacity
 and complete option tuples enter the existing content handshake. Profile and
