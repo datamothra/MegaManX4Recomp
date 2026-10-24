@@ -32,7 +32,7 @@
 #define TRAILS 0x80141AB0u
 #define CHARGE_GLOWS 0x8013E470u
 #define PAD 0x80166C08u
-#define FRAME_ARENA 0x40000u
+#define FRAME_ARENA MMX4_COOP_FRAME_ARENA_BYTES
 typedef struct {
     uint8_t body[0xE4], shots[0x9C0], trails[0x120], charge_glows[0xA0];
     uint8_t double_body[0xE4],vehicle[0xB0];
@@ -1770,7 +1770,7 @@ static void activate_common(unsigned four) {
     }
     diagnostic=psx_mod_alloc_guest_memory(four?0x1000:0x860,16); /* +0x800: scoped draw actor */
     arena=psx_mod_alloc_texture_packet_memory((four?8u:2u)*FRAME_ARENA,16);
-    hud_arena=psx_mod_alloc_texture_packet_memory(0x10000,16);
+    hud_arena=psx_mod_alloc_texture_packet_memory(MMX4_COOP_HUD_ARENA_BYTES,16);
     if(!diagnostic || !arena || !hud_arena)failed=1;
     if(!mmx4_coop_audio_activate())failed=1;
     /* Host ARC/UI/SPU residency precedes a possible first-PC state load.

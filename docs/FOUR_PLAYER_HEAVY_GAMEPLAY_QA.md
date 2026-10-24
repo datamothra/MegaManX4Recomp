@@ -1,5 +1,11 @@
 # Four-player heavy-gameplay follow-up, 2026-10-24
 
+This artifact is superseded by [the layer/menu correction](FOUR_PLAYER_LAYER_QA.md).
+Its four-player allocations prevented Widescreen's authored-map renderer from
+initializing, despite its selected checkbox. The measurements here therefore
+describe the retail-ring fallback and must not be presented as performance or
+qualification of the complete authored-map path.
+
 The experimental build now uses shared psxrecomp renderer improvements as well
 as the previously selected HLE batching and title-owned private sprite culling.
 The framework skips wholly clipped native GL primitives and keeps pending
