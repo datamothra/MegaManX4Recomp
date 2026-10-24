@@ -26,7 +26,7 @@ unsigned mmx4_coop_texture_cache_slot_buffers(unsigned count,uint16_t first,
          * its 40,000-byte native packet scratch region. HUD pairs occupy
          * [3000,8000). Pin even unused old tails: conservative retention is
          * safe. Refuse reuse when the complete live set pins every ID. */
-        retain_packets(used,first,world+buffer*0x40000u+40000u,80000u,read_word);
+        retain_packets(used,first,world+buffer*MMX4_COOP_FRAME_ARENA_BYTES+40000u,80000u,read_word);
     }
     for(unsigned buffer=0;buffer<2;++buffer) {
         retain_packets(used,first,hud+buffer*0x8000u+0x3000u,0x5000u,read_word);

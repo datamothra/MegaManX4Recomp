@@ -2,6 +2,12 @@
 #define MMX4_COOP_TEXTURE_CACHE_H
 #include <stdint.h>
 
+/* 1,000 native 40-byte packets plus their two 40-byte expanded triangles.
+ * Eight frame slots and the HUD must coexist with all six 1 MiB background
+ * planes inside the GPU's fixed 8 MiB DMA aperture. */
+#define MMX4_COOP_FRAME_ARENA_BYTES 0x20000u
+#define MMX4_COOP_HUD_ARENA_BYTES 0x10000u
+
 /* Find a reusable ID without replacing artwork referenced by either native
  * packet buffer. The selection depends only on saved guest memory, not host
  * clock/LRU history, so restored timelines make the same decision. */
