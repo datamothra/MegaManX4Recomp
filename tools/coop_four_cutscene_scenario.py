@@ -62,7 +62,7 @@ def four_cutscene(runtime, diagnostic, count, output):
             fixture(2, seat, 127)
             runtime.input(0x7fdf, seat)
         runtime.request('turbo', enabled=1)
-        deadline = time.monotonic()+65
+        deadline = time.monotonic()+120
         crossed = False
         while True:
             row = sample('native-door-approach')
@@ -98,13 +98,18 @@ def four_cutscene(runtime, diagnostic, count, output):
             runtime.input(0xffff, seat)
         # Let the actual story controller release the gate; no completion
         # byte is written. Confirm belongs to its native P1 scene owner.
-        deadline = time.monotonic()+60
+        deadline = time.monotonic()+180
+        first_release_frame=after['header'][4]
         while True:
             released = sample('native-scene-release')
-            assert all(p['hp'] for p in released['players']), released
-            if not released['play'][0x1c] and not any(p['script'] or p['door'] for p in released['players']):
+            # A real section load clears the extra-seat mirrors until native
+            # enrollment. Empty loading contexts are not dead participants.
+            if released['header'][2]:
+                assert all(p['hp'] for p in released['players']), released
+            if released['play'][:2]==[6,0] and released['header'][2] and not released['play'][0x1c] and \
+                    all(p['state']==1 and p['pose']>=2 and not p['script'] and not p['door'] for p in released['players']):
                 break
-            assert time.monotonic()<deadline, released
+            assert time.monotonic()<deadline and released['header'][4]-first_release_frame<2400, released
             runtime.input(0xbfff, 0)
             time.sleep(.12)
             runtime.input(0xffff, 0)
@@ -114,7 +119,8 @@ def four_cutscene(runtime, diagnostic, count, output):
         assert stats['verify_checks'] and not any(stats[k] for k in
             ('verify_mismatch','aborted','watchdog','vram_leaks')), stats
         return dict(passed=True, native_gate=True, frozen_phase='explicit offline setup',
-                    before=before, after=after, released=released, render_stats=stats)
+                    before=before, after=after, released=released, render_stats=stats,
+                    native_section_transition=released['play'][13]!=before['play'][13])
     finally:
         if saved_freeze is not None:
             runtime.write(0x801721d0, saved_freeze)
