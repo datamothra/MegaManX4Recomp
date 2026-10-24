@@ -77,7 +77,7 @@ try:
         env=os.environ.copy()
         for key,sub in dict(TEMP='temp',TMP='temp',APPDATA='appdata',LOCALAPPDATA='local',PSX_RESIDENT_CACHE='resident',PSX_OVERLAY_CACHE_DIR='overlay',PSX_OVERLAY_CAPTURE_ROOT='captures',MESA_SHADER_CACHE_DIR='shaders',__GL_SHADER_DISK_CACHE_PATH='shaders').items():
             p=folder/sub;p.mkdir(exist_ok=True);env[key]=str(p)
-        env.update(SDL_AUDIODRIVER='dummy',MMX4_RECOMP_DATA_DIR=str(folder),PSX_OVERLAY_AUTOCOMPILE_OFF='1',PSX_RENDER_PASS_VERIFY='1',PSX_NET_TRANSPORT='lan',PSX_NET_MODE='delay',PSX_NET_SLOTS=str(count))
+        env.update(SDL_AUDIODRIVER='dummy',MMX4_RECOMP_DATA_DIR=str(folder),PSX_OVERLAY_AUTOCOMPILE_OFF='1',PSX_RENDER_PASS_VERIFY='1',PSX_NET_TRANSPORT='lan',PSX_NET_MODE='delay',PSX_NET_SLOTS=str(count),PSX_DEBUG_TOGGLES='0',PSX_DYNRES='0',PSX_INTERNAL_RESOLUTION='native')
         args=[str(folder/executable.name),'--hidden-window','--no-launcher','--renderer','opengl','--debug-port',str(options.tcp_base+seat),
             '--game',str(folder/'game.toml'),'--bios',str(bios),'--disc',str(disc),
             '--memcard-dir',str(folder/'saves'),'--netplay','--net-slot',str(seat),'--net-input-player','0','--net-bind','127.0.0.1:'+str(options.udp_base+seat),
@@ -102,7 +102,7 @@ try:
         if all(mode==(6,0) for mode in modes):
             input(0);wait_ticks(20)
             obs=observations()
-            if all(o['header'][2] and all(p['hp'] and p['state']==1 for p in o['actors']) for o in obs):break
+            if all(o['header'][2] and all(p['hp'] and p['state']==1 and p['pose']>=2 for p in o['actors']) for o in obs):break
             continue
         input(0,0x80 | (8 if pulse%2==0 else 0x4000));wait_ticks(12)
         input(0);wait_ticks(10);pulse+=1
@@ -111,6 +111,13 @@ try:
     actors=observations()[0]['actors']
     assert [p['char'] for p in actors]==([1,0,0,0] if alternate else [0,1,0,1][:count]),actors
     if alternate:assert [(p['armor'],p['arm']) for p in actors[2:]]==[(15,1),(15,2)],actors
+    # Clear the approaching opening enemies through actual native attacks.
+    # This keeps later controller-ownership checks separate from knockback;
+    # no offline health/protection fixture is available in this LAN test.
+    for seat in range(count):input(seat,0x8000)
+    wait_ticks(100)
+    for seat in range(count):input(seat)
+    wait_ticks(25)
     for seat in range(count):
         before=observations()[0]
         input(seat,0x20);wait_ticks(20);input(seat);wait_ticks(6)
@@ -135,6 +142,23 @@ try:
     assert after['actors'][leader]['x']-after['actors'][0]['x']>250,after
     assert after['actors'][leader]['camera'][0]-after['actors'][0]['camera'][0]>200,after
     for i,r in enumerate(peers):capture_pair(r,dirs[i]/'own-view.png')
+    input(leader,8);wait_ticks(8);input(leader)
+    deadline=time.monotonic()+30
+    while True:
+        menus=[list(peers[0].read(addresses[0]+0xd00+i*0x34,0x34)) for i in range(count)]
+        if all(m[4]==1 for m in menus):break
+        assert time.monotonic()<deadline,('Private menus did not initialize',menus)
+        wait_ticks(5)
+    cursors=[m[0x14] for m in menus]
+    cursor_owner=next(i for i,actor in enumerate(actors) if actor['char']==0)
+    input(cursor_owner,0x40);wait_ticks(6);input(cursor_owner);wait_ticks(6)
+    changed=[list(peers[0].read(addresses[0]+0xd00+i*0x34,0x34)) for i in range(count)]
+    assert changed[cursor_owner][0x14]!=cursors[cursor_owner],('X menu ignored input',menus,changed)
+    assert all(changed[i][0x14]==cursors[i] for i in range(count) if i!=cursor_owner),('Menu input leaked',menus,changed)
+    for i,r in enumerate(peers):capture_pair(r,dirs[i]/'own-menu.png')
+    checkpoint('private-menus')
+    input(leader,8);wait_ticks(8);input(leader);wait_ticks(90)
+    assert all(o['mode']==[6,0] for o in observations()),'Private menus did not resume'
     report['render_stats']=all_request('render_pass_stats');report['counters']=all_request('mod_counters')
     assert all(s['verify_mismatch']==0 and s['aborted']==0 for s in report['render_stats']),report['render_stats']
     for counters in report['counters']:

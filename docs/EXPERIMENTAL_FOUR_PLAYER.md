@@ -38,6 +38,28 @@ Each seat has two distinct draw arenas; cache reuse pins all eight arenas.
 Individual views use the framework's reversible render transaction. Private
 draws restore host contexts as well as guest state and do not tick the world.
 
+Each seat has its own native pause menu, weapon selection and tank cursor.
+Ultimate X uses X's menu artwork; Black Zero uses Zero's. Start from a living
+seat pauses or resumes the team. Quit and Options retain one shared campaign
+frontend. In three-player split, P3's menu is centered in the bottom pane.
+
+Added seats join the native incoming beam while P1 is arriving. Each body
+retains its own descent countdown and collision-box installation; only P1's
+arrival releases the shared stage lock. Enrollment precedes the first HUD
+draw, so each meter starts in its own cell rather than first stacking in the
+canonical view. The retail overlapping READY exit animation is preserved.
+Native C4 doors gather living teammates
+at the entering hero's feet and protect them through the one authored door
+walk. The door releases their original bodies and collision boxes together;
+dead seats stay dead.
+
+Each camera updates all three native foreground/parallax layers before its
+view is saved. Local cells reuse the same synchronized CPU VRAM checkpoint.
+ENHANCED execution charges the canonical world normally and runs added player
+and camera passes through the bounded uncharged native-call service. An exceeded budget
+falls back to charged execution so device waits can complete. REFERENCE builds
+keep charged native player passes. This policy is fixed by the build profile.
+
 The roster selects a separate trusted netplay profile. Three/four-seat capacity
 and complete option tuples enter the existing content handshake. Profile and
 roster selection stay fixed during the match; mismatched configurations are
@@ -69,11 +91,11 @@ or aborted passes. Framework tests cover declined/capture-failed cells and a
 watchdog in the last cell, including recovery without partial publication.
 
 Full campaign, boss/door/script parity, vehicles, all weapon upgrades,
-independent personal menus, Internet/ICE, spectators, cross-OS/CPU netplay and
+Internet/ICE, spectators, cross-OS/CPU netplay and
 long-session cache pressure remain unqualified. The existing two-player
 engine's stage-specific fixes do not automatically cover this separate engine.
-P1 retains the shared campaign/menu role. P2–P4 enroll after P1's initial READY
-arrival has installed the landing geometry. This is a spike, not a stable release.
+P1 retains shared campaign ownership. The intro C4 door and individual pause
+menus have bounded native regression coverage. This is an experimental build.
 
 Local play uses an 8:6 canvas: P1 top left, P2 top right; P3 spans the bottom in
 three-player mode, or uses bottom left with P4 bottom right. The bottom camera
@@ -84,6 +106,12 @@ All four tiles must succeed before a new frame is published. Each draw restores
 the same simulation checkpoint; drawing more views never ticks the world again.
 Shared menus/movies and unavailable private draws use fresh canonical images in
 the same canvas. Local unified play is deferred and has no selectable option.
+
+The optional `mmx4.coop-free-cutscenes` package is a separate experiment for
+both co-op engines. It removes ordinary two-player withdrawal/neutral input
+and keeps non-owner controllers/cameras active during a world freeze. Doors,
+actual room transports and shared campaign/dialogue ownership are retained.
+See [COOP_FREE_CUTSCENES.md](COOP_FREE_CUTSCENES.md).
 
 ## Reproduce the bounded online checks
 
