@@ -22,7 +22,9 @@ not replace the stable download. Supply your own original USA disc as usual.
 - Includes the shared-runtime gameplay optimizations and render worker used in
   the approved build. Clean preview defaults use OpenGL at native internal
   resolution, windowed, with normal audio. Resolution remains configurable.
-  Heavy gameplay performance still needs broader qualification.
+  Heavy gameplay remains slow: the final package smoke measured about 43 FPS
+  idle and 37 FPS while charging/firing on its busy-area route. Host load and
+  route conditions vary; this is not a controlled comparison with earlier runs.
 - Diagnostic recording remains optional and off by default. CD Speed, Fast
   Loading and developer cheats are absent. No game discs, Japanese media,
   personal saves, bindings or disc paths are bundled.
@@ -39,7 +41,9 @@ portable HUD fixtures, native three/four-player HUD and background regressions,
 production keyboard/pause smoke, and four production LAN peers with 106 matching
 core/mod CRC samples through tick 3424. These are bounded checks, not a complete
 campaign or Internet qualification. See [four-player setup](docs/EXPERIMENTAL_FOUR_PLAYER.md),
-[HUD evidence](docs/FOUR_PLAYER_HUD_QA.md) and [layer evidence](docs/FOUR_PLAYER_LAYER_QA.md).
+[HUD evidence](docs/FOUR_PLAYER_HUD_QA.md) and [layer evidence](docs/FOUR_PLAYER_LAYER_QA.md). The clean archive also passes
+native four-player input/combat/pause/resume using the public configuration;
+see [prerelease package checks](docs/FOUR_PLAYER_PRERELEASE_QA.md).
 
 ---
 
