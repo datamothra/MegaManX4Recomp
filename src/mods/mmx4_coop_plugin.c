@@ -1290,6 +1290,46 @@ static int render(CPUState *cpu,uint32_t address) {
     return mmx4_coop_finish(cpu,result);
 }
 static int render_owned_effect(CPUState *cpu,uint32_t address) {
+    uint32_t stock_actor=cpu->gpr[4];
+    int stock_owner=mmx4_coop_stored_charge_owner(stock_actor);
+    if(!rendering && !projected && mmx4_coop_ready() && world_draw_visible() && stock_owner>=0) {
+        /* X's stored shots are a screen-relative particle, not part of
+         * native24E70's health HUD. The world draw visits that same particle
+         * for every Split view; only its allocating player's HUD owns it.
+         * Unified uses the same offset as that player's health group. */
+        int own_hud=split_views && psx_mod_local_view_scope();
+        unsigned character=stock_owner?second.body[2]:psx_mod_read_byte(PLAYER+2);
+        if(character || (own_hud && (unsigned)stock_owner!=local_view_seat)) {
+            psx_mod_counter_add("mmx4.coop.stored-charge-hud-other-view-hidden",1);
+            return mmx4_coop_finish(cpu,0);
+        }
+        uint16_t x=psx_mod_read_half(stock_actor+10),y=psx_mod_read_half(stock_actor+14);
+        if(stock_owner && !own_hud) {
+            psx_mod_write_half(stock_actor+10,(uint16_t)(x+(hud_side_by_side?56:0)));
+            psx_mod_write_half(stock_actor+14,(uint16_t)(y+(hud_side_by_side?0:104)));
+        }
+        rendering=1;
+        uint32_t original=psx_mod_read_word(SCRATCH+0x100);
+        uint32_t base=arena+(psx_mod_read_word(SCRATCH)&1u)*FRAME_ARENA;
+        uint32_t start=base+world_packet_used;
+        psx_mod_write_word(SCRATCH+0x100,start);
+        if(stock_owner)enter_second();
+        render_actor(cpu,stock_actor,base,0);
+        if(stock_owner)leave_second();
+        uint32_t end=psx_mod_read_word(SCRATCH+0x100);
+        if(!failed)for(uint32_t at=start;at<end;at+=40) {
+            uint32_t expanded=base+40000+(at-base)*2;
+            psx_mod_tag_world_primitive(expanded,0);psx_mod_tag_world_primitive(expanded+40,0);
+            psx_mod_anchor_hud_primitive(expanded,-1);psx_mod_anchor_hud_primitive(expanded+40,-1);
+        }
+        world_packet_used=end-base;
+        psx_mod_write_word(SCRATCH+0x100,original);
+        psx_mod_write_half(stock_actor+10,x);psx_mod_write_half(stock_actor+14,y);
+        rendering=0;
+        psx_mod_counter_add(stock_owner?"mmx4.coop.p2-stored-charge-hud-draws":
+            "mmx4.coop.p1-stored-charge-hud-draws",1);
+        return mmx4_coop_finish(cpu,0);
+    }
     uint8_t assessment[0x60];
     if(!rendering && diagnostic && cpu->gpr[4]>=0x80173CA0u &&
        cpu->gpr[4]<0x801754A0u && psx_mod_read_byte(cpu->gpr[4]+1)==34 && world_draw_visible() &&

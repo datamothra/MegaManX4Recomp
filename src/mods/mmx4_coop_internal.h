@@ -116,6 +116,8 @@ unsigned mmx4_coop_lifecycle_menu_fade(uint32_t buffer);
 int mmx4_coop_lifecycle_draw_menu(CPUState *cpu,unsigned seat);
 void mmx4_coop_combat_reset(void);
 unsigned mmx4_coop_vehicle_effect_owner(uint32_t actor);
+/* Native X stored-charge display: owning seat 0/1, or -1 for another actor. */
+int mmx4_coop_stored_charge_owner(uint32_t actor);
 /* Allocating seat (1/2), or a captured effect's subsequently bound victim. */
 unsigned mmx4_coop_secondary_allocation_owner(uint32_t actor);
 void mmx4_coop_combat_project_end(uint32_t vehicle_mirror);
