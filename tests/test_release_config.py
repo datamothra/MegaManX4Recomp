@@ -33,7 +33,7 @@ class ReleaseConfigTest(unittest.TestCase):
         self.assertEqual(cameras["feature"], "coop")
         self.assertEqual(cameras["default"], "unified")
         self.assertEqual([(choice["value"], choice["label"]) for choice in cameras["choice"]],
-                         [("unified", "Unified"), ("split", "Split (Experimental)")])
+                         [("unified", "Unified"), ("split", "Split")])
 
     def test_display_defaults(self):
         for path in (ROOT / "game.toml", ROOT / "packaging/release/game.toml"):
