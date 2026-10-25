@@ -1,4 +1,19 @@
-# Mega Man X4 Recompiled - 1.0.8 Stable Public Beta
+# Mega Man X4 Recompiled - 1.0.9 Stable Public Beta
+
+- Keep each Split player's HUD and camera through story cutscenes and the fade into and out of pause.
+- Keep each player's own pause portrait when returning from Continue / Quit.
+- Preserve native scene fades without briefly recoloring the world with a menu portrait palette.
+
+Diagnostic recording remains optional and **off by default**. Both netplay
+peers must update. Native memory-card saves carry forward. The original,
+unmodified USA disc remains required; CD Speed, Fast Loading and developer
+cheats are absent from public packages.
+
+The reproduced cutscene HUD and Quit-return portrait failures pass native
+checks. The exact reported one-frame duplicate-view pause flash still needs
+confirmation on this release. Four Player Co-op remains a separate prerelease.
+
+## Previous v1.0.8 Stable Public Beta
 
 - Fixed stacked health meters briefly appearing in each Split view during stage arrival and team retry. Each player keeps their own HUD while X and Zero finish their entrance animations.
 - Removed the Experimental label from independent local and netplay cameras.

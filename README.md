@@ -11,10 +11,10 @@ from acediez/Hondoori (English) and El Retro Dan (Spanish), with
 
 **X and Zero. Together.**
 
-Mega Man X4 on Windows and Linux. **1.0.8 Stable Public Beta**, with two-player co-op.
+Mega Man X4 on Windows and Linux. **1.0.9 Stable Public Beta**, with two-player co-op.
 Bring a friend through X's or Zero's campaign, on one computer or over netplay.
 
-**[Downloads](https://github.com/mstan/MegaManX4Recomp/releases)** · [What's new in 1.0.8](RELEASE_NOTES.md) · [Known issues](docs/COOP_PLAYTEST_FEEDBACK_20261010.md)
+**[Downloads](https://github.com/mstan/MegaManX4Recomp/releases)** · [What's new in 1.0.9](RELEASE_NOTES.md) · [Known issues](docs/COOP_PLAYTEST_FEEDBACK_20261010.md)
 
 <p align="center">
   <img src="docs/images/coop-jungle.png" width="640" alt="X and Zero together at the Jungle waterfall, with vertically stacked lifebars">
@@ -29,7 +29,7 @@ as the other hero. Arrive together, tackle bosses together, and share team retri
 | Make it your co-op run | Choices |
 | --- | --- |
 | Play together | Local co-op with two controllers or separate keyboard bindings; two-player netplay from the launcher. |
-| Pick your view | **Unified** camera by default. **Split (Experimental)** gives each netplay player an independent screen. Local co-op also offers **side by side 8:3 (Experimental)**, with two 4:3 views in one window. |
+| Pick your view | **Unified** camera by default. **Split** gives each netplay player an independent screen. Local co-op also offers **side by side 8:3**, with two 4:3 views in one window. |
 | Arrange your HUD | Stacked lifebars by default, or side by side. Independent screens show their own player's meter. |
 | Manage your supplies | Either player opens both heroes' own pause menus. Choose weapons and manage supplies independently; either player resumes both. E-tank energy is separate while independent menus are enabled, and healing blocks unpause while your partner can keep navigating. |
 | Set the door rule | Either player opens boss doors by default. Optionally wait for both living, present players. |
