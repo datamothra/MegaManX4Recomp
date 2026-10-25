@@ -480,7 +480,8 @@ def p2_pause_quit(s):
     opened()
     pulse(0xFFFE)
     s.wait("quit-survivor-p2-popup", lambda v: v["menu"] == [1, 6], 10)
-    time.sleep(0.9)
+    s.wait("quit-survivor-p2-popup-ready", lambda v:
+           v["menu_detail"][4:8] == [1, 6, 2, 1] and not v["warning"], 20)
     capture_pair(r, s.output / "p2-quit-with-p1-dead.png")
     pulse(0xBFFF, 0)
     assert r.read(0x801754A5, 1)[0] == 6, "Dead P1 confirmed P2 popup"
@@ -490,15 +491,19 @@ def p2_pause_quit(s):
     )
     pulse(0xFFF7)
     s.wait("quit-survivor-resumed", lambda v: v["mode"][:2] == [6, 0], 10)
+    s.wait("quit-survivor-controls-ready", lambda v: not v["blocked"] and not v["warning"] and
+           v["players"][1]["state"] == 1 and v["players"][1]["action"] == 2, 15)
     x = s.sample("quit-cancel-before-movement")["players"][1]["x"]
     r.input(0xFFDF, 1)
-    time.sleep(0.4)
-    r.release()
-    assert s.sample("quit-cancel-after-movement")["players"][1]["x"] > x + 5
+    try:
+        s.wait("quit-cancel-after-movement", lambda v: v["players"][1]["x"] > x + 5, 5)
+    finally:
+        r.release()
     opened()
     pulse(0xFFFE)
     s.wait("quit-survivor-reopened", lambda v: v["menu"] == [1, 6], 10)
-    time.sleep(0.9)
+    s.wait("quit-survivor-reopened-ready", lambda v:
+           v["menu_detail"][4:8] == [1, 6, 2, 1] and not v["warning"], 20)
     pulse(0xFFBF)
     pulse(0xBFFF)
     time.sleep(0.5)
