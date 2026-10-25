@@ -17,7 +17,7 @@ emitters are rebuilt for the bundled native fallback toolchain. Original-disc
 inventory found no separate X4 executable overlay, so no unqualified cache or
 private code captures are shipped.
 
-The 521-file archive has 15 verified mod packages. CD Speed and Fast Loading
+The archive has 15 verified mod packages. CD Speed and Fast Loading
 are absent. Four Player Co-op, free cutscenes and diagnostic recording start
 off. The clean source-controlled preview settings enable OpenGL, native
 internal resolution and the render worker, windowed with normal audio. There
@@ -26,7 +26,7 @@ are no personal saves, state files, bindings, media packs or disc paths.
 A fresh extraction opens recomp-ui without a disc and does not approve a
 missing disc for netplay. Dashboard, Settings, Mods and all four Controls
 slots render. Native resolution, render worker, windowed presentation and
-normal-audio preferences survive launcher save/reopen settings handling.
+normal-audio preferences persist when the launcher saves its settings.
 
 The exact packaged game configuration, settings, catalog and binary pass a
 separate hidden, muted native smoke using the owner's external original USA
