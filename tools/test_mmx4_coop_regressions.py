@@ -84,6 +84,9 @@ class Scenarios:
         return dict(owner=owner, before=before, during=after,
                     door=door, render_stats=render, frozen_setup=frozen,
                     method='Native Slash Beast midboss admission; ordinary controller input during its live script')
+    def stock_charge_hud(self):
+        from coop_stock_charge_scenario import stock_charge_hud
+        return stock_charge_hud(self)
     def magma_pillars(self):
         from coop_magma_105_scenarios import magma_pillars
         return magma_pillars(self)
