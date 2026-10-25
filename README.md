@@ -39,7 +39,7 @@ as the other hero. Arrive together, tackle bosses together, and share team retri
 | Make it your co-op run | Choices |
 | --- | --- |
 | Play together | Local co-op with two controllers or separate keyboard bindings; two-player netplay from the launcher. |
-| Pick your view | **Unified** camera by default. **Split (Experimental)** gives each netplay player an independent screen. Local co-op also offers **side by side 8:3 (Experimental)**, with two 4:3 views in one window. |
+| Pick your view | **Unified** camera by default. **Split** gives each netplay player an independent screen. Local co-op also offers **side by side 8:3**, with two 4:3 views in one window. |
 | Arrange your HUD | Stacked lifebars by default, or side by side. Independent screens show their own player's meter. |
 | Manage your supplies | Either player opens both heroes' own pause menus. Choose weapons and manage supplies independently; either player resumes both. E-tank energy is separate while independent menus are enabled, and healing blocks unpause while your partner can keep navigating. |
 | Set the door rule | Either player opens boss doors by default. Optionally wait for both living, present players. |
