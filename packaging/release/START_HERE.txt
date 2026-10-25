@@ -1,6 +1,6 @@
 MegaManX4Recomp - Mega Man X4, recompiled
 ==========================================
-1.0.8-4p-spike.1 - Four Player Co-op Preview (Windows x64)
+1.0.9-4p-spike.1 - Four Player Co-op Preview (Windows x64)
 
 WHAT YOU NEED
   Your own original, unmodified Mega Man X4 (USA, SLUS-00561) disc image.
