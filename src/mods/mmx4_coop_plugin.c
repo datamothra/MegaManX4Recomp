@@ -1483,7 +1483,8 @@ static int draw_local_view(CPUState *cpu,void *user,uint32_t alpha) {
 static int draw_local_pair(CPUState *cpu,void *user,uint32_t seat) {
     LocalViewContext context;
     local_context_save(&context);
-    local_view_seat=mmx4_coop_lifecycle_personal_menus()?seat:mmx4_coop_split_view_seat(seat);
+    int story=mmx4_coop_lifecycle_script_owner()>=0 && !mmx4_coop_lifecycle_paired_door();
+    local_view_seat=mmx4_coop_lifecycle_personal_menus() || story?seat:mmx4_coop_split_view_seat(seat);
     int ok=draw_local_view(cpu,user,0);
     /* Host plugin contexts must return to the common baseline between views,
      * as well as the framework's CPU/RAM/VRAM checkpoint. Neither draw ticks AI. */
@@ -1494,7 +1495,8 @@ static int present_local_view(CPUState *cpu,uint32_t address) {
     unsigned paired=mmx4_coop_lifecycle_paired_door();
     int menu=mmx4_coop_lifecycle_personal_menus() &&
         psx_mod_read_byte(PLAY)==6 && psx_mod_read_byte(PLAY+1)==2;
-    int returning=mmx4_coop_lifecycle_resuming_world();
+    int paused_world=mmx4_coop_lifecycle_paused_world();
+    int story=mmx4_coop_lifecycle_script_owner()>=0 && !paired;
     int local_menu=menu && !psx_mod_netplay_is_active();
     if(!local_split && !psx_mod_netplay_is_active())
         psx_mod_set_local_pair_presentation(local_menu);
@@ -1503,13 +1505,15 @@ static int present_local_view(CPUState *cpu,uint32_t address) {
     /* An ordinary world freeze (including an ice bird's field effect) is
      * not a request to replace the partner's view with the canonical image.
      * The existing private transaction can redraw the frozen saved camera;
-     * real story owners, fades and transition locks retain their gates. */
+     * Story draws use the native scripted camera in both panes, with each
+     * player's own HUD. Pause entry/exit likewise keep their private world
+     * images until the character menus take over. */
     if((!split_views && !menu) || local_view_call || projected || inside || !mmx4_coop_ready() ||
-       psx_mod_read_byte(PLAY)!=6 || (!menu && !returning && psx_mod_read_byte(PLAY+1)!=0) ||
-       cpu->gpr[31]!=0x80012080u || (!menu && mmx4_coop_lifecycle_script_owner()>=0 && !paired) ||
+       psx_mod_read_byte(PLAY)!=6 || (!menu && !paused_world && psx_mod_read_byte(PLAY+1)!=0) ||
+       cpu->gpr[31]!=0x80012080u ||
        psx_mod_read_byte(PLAY+0x0F) ||
        (!menu && psx_mod_read_byte(PLAY+0x1C) && !mmx4_coop_lifecycle_initial_arrival() &&
-        !mmx4_coop_lifecycle_nova_active() && !paired)) {
+        !mmx4_coop_lifecycle_nova_active() && !paired && !story)) {
         return 0;
     }
     uint32_t buffer=psx_mod_read_word(0x80142F80u);
@@ -1519,7 +1523,7 @@ static int present_local_view(CPUState *cpu,uint32_t address) {
     guest(cpu,0x800EA20Cu,0,0);
     int port=psx_netplay_local_port();
     unsigned seat=port>=0 && port<2?(unsigned)port:0;
-    local_view_seat=menu?seat:mmx4_coop_split_view_seat(seat);
+    local_view_seat=menu || story?seat:mmx4_coop_split_view_seat(seat);
     PSXModRenderPass rectangle={sizeof rectangle,0,
         psx_mod_read_half(buffer+0x14u),psx_mod_read_half(buffer+0x16u),
         psx_mod_read_half(buffer+0x18u),psx_mod_read_half(buffer+0x1Au)};
