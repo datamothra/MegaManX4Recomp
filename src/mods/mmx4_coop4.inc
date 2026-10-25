@@ -859,7 +859,7 @@ static int four_draw_view(CPUState *cpu,void *user,uint32_t alpha) {
     gpu_write_gp0(psx_mod_read_half(buffer+0x18u)|(uint32_t)psx_mod_read_half(buffer+0x1Au)<<16);
     guest(cpu,0x800EA714u,buffer+0x70u,12);guest(cpu,0x80023D68u,0,0);
     if(failed || projected || rendering || hud_call)return 0;
-    guest(cpu,0x800EC228u,buffer+0x9Cu,0);return 1;
+    guest(cpu,0x800EC228u,buffer+0x9Cu,0);draw_local_fade(buffer);return !failed;
 }
 typedef struct {
     FourSeat seats[4];
@@ -892,9 +892,9 @@ static int four_draw_grid(CPUState *cpu,void *user,uint32_t cell) {
 }
 static int four_present(CPUState *cpu,uint32_t address) {
     int menu=mmx4_coop_lifecycle_personal_menus();
-    int returning=mmx4_coop_lifecycle_resuming_world();
+    int paused_world=mmx4_coop_lifecycle_paused_world();
     if(four_present_call || projected || four_busy || failed || !enrolled ||
-       psx_mod_read_byte(PLAY)!=6 || (psx_mod_read_byte(PLAY+1) && !menu && !returning) ||
+       psx_mod_read_byte(PLAY)!=6 || (psx_mod_read_byte(PLAY+1) && !menu && !paused_world) ||
        psx_mod_read_byte(PLAY+0x0Fu) || cpu->gpr[31]!=0x80012080u)return 0;
     uint32_t buffer=psx_mod_read_word(0x80142F80u);if(cpu->gpr[4]!=buffer+0x9Cu)return 0;
     four_present_call=1;
