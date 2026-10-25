@@ -1,4 +1,18 @@
-# Mega Man X4 Recompiled - 1.0.7 Stable Public Beta
+# Mega Man X4 Recompiled - 1.0.8 Stable Public Beta
+
+- Fixed stacked health meters briefly appearing in each Split view during stage arrival and team retry. Each player keeps their own HUD while X and Zero finish their entrance animations.
+- Removed the Experimental label from independent local and netplay cameras.
+- Includes the 1.0.7 fixes for X's stored-charge HUD, Magma Dragoon's first-slope shake and Web Spider's survivor ladder camera.
+
+Diagnostic recording remains optional and **off by default**. Both netplay
+peers must update. Native memory-card saves carry forward. The original,
+unmodified USA disc remains required; CD Speed, Fast Loading and developer
+cheats are absent from public packages.
+
+See [arrival HUD validation and limits](docs/COOP_INITIAL_HUD.md).
+Four Player Co-op remains available in its separate prerelease.
+
+## Previous v1.0.7 Stable Public Beta
 
 - Fixed X's stored charged-shot indicators appearing under Zero's HUD. The icons now belong to the X player in Split and follow that player's HUD layout in Unified, including when Zero is Player 1.
 - Fixed missing screen shake when Player 2 leads down Magma Dragoon's first slope ahead of the rolling boulders. Each eligible camera retains its own native shake timing.
