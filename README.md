@@ -11,15 +11,15 @@ from acediez/Hondoori (English) and El Retro Dan (Spanish), with
 
 **X and Zero. Together.**
 
-**Four Player Co-op Preview 1 - `1.0.6-4p-spike.1` (Windows x64).**
+**Four Player Co-op Preview - `1.0.8-4p-spike.1` (Windows x64).**
 This feature branch adds experimental three/four-player co-op with independent
 local split cameras and individual online views. Enable **Mods -> Four Player
 Co-op**, then assign each seat in **Controls**. The default roster is X, Zero,
 Ultimate Armor X and Black Zero; Player 4 can be None for three-player play.
 
-**[Download this prerelease](https://github.com/mstan/MegaManX4Recomp/releases/tag/v1.0.6-4p-spike.1)** | [Setup and limitations](docs/EXPERIMENTAL_FOUR_PLAYER.md) | [Release notes](RELEASE_NOTES.md)
+**[Download this prerelease](https://github.com/mstan/MegaManX4Recomp/releases/tag/v1.0.8-4p-spike.1)** | [Setup and limitations](docs/EXPERIMENTAL_FOUR_PLAYER.md) | [Release notes](RELEASE_NOTES.md)
 
-The preview is separate from the [1.0.6 Stable Public Beta](https://github.com/mstan/MegaManX4Recomp/releases/tag/v1.0.6).
+The preview is separate from the [1.0.8 Stable Public Beta](https://github.com/mstan/MegaManX4Recomp/releases/tag/v1.0.8).
 Local unified four-player cameras are deferred. Four-player save states and
 rewind are unavailable; native memory-card saves remain supported. Full-campaign,
 Internet and cross-platform four-player play remain unqualified. See the preview
@@ -53,7 +53,7 @@ The netplay host chooses the shared options.
 <p align="center">
   <img src="docs/images/split-x.png" width="48%" alt="Player 1's independent view follows X in a lower Jungle passage">
   <img src="docs/images/split-zero.png" width="48%" alt="Player 2's independent view follows Zero near a different waterfall">
-  <br><em>One shared world, two independent netplay views. Split remains experimental.</em>
+  <br><em>One shared world, two independent netplay views.</em>
 </p>
 
 <p align="center">
