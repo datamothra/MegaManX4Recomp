@@ -19,6 +19,10 @@ out_dir = "generated"
 bios_config = "psxrecomp-v4/bios/SCPH1001.toml"
 
 [runtime]
+# Audited native synchronization loop; match the qualified development build.
+idle_skip = true
+idle_skip_store_counters = true
+idle_skip_store_counter_sites = ["0x800E4F6C"]
 window_title = "Mega Man X4 Recompiled"
 memcard_dir = "saves"
 disc_speed = "1x"
