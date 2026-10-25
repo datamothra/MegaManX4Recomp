@@ -28,11 +28,20 @@ release remains a separate download. Supply your own original USA disc.
   Loading and developer cheats are excluded. No discs, media packs, personal
   saves, bindings or disc paths are bundled.
 
-**Integration status:** source/model checks and original stable-fix evidence
-are documented in [the preview integration record](docs/FOUR_PLAYER_107_INTEGRATION.md).
-Fresh native three/four-player rendering, stored-charge, gameplay/netplay and
-extracted-package checks are pending until the corresponding QA workers finish.
+**Qualification:** fresh native three/four-player layout, personal menus,
+stored-charge ownership, original-disc package boots and four-peer LAN checks
+pass. Both two-player rosters also pass the imported stage fixes.
+See [the preview qualification record](docs/FOUR_PLAYER_107_PRERELEASE_QA.md).
 Older preview results below describe their original binary and layout.
+
+**Known four-player stage limitation:** when P2 leads Magma Dragoon while P1
+waits behind, the volcano emitter remains idle: its boulders and slope rumble
+do not start. The matched P1-led control works. This is tracked separately as
+`beads-eio.9.244`; the stable two-player correction does not fix this separate
+four-player controller path.
+Web Spider also has a Four-specific camera-area gap: P2 entering the shaft
+does not admit the bounds that a matched P1 approach admits (`beads-eio.9.245`).
+The subsequent Four survivor-ladder case remains unverified.
 
 Four-player save states and rewind remain blocked; native memory-card saves
 retain their existing isolation. Full-campaign, all boss/door/script paths,

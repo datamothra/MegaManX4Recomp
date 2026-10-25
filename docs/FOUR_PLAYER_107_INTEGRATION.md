@@ -62,20 +62,35 @@ off by default. Public packages must exclude CD Speed, Fast Loading and
 development cheats. Windowed presentation and normal owner-facing audio
 remain the preview defaults.
 
-## Native and package qualification pending
+## Fresh native and package qualification
 
-This source merge does not qualify a rebuilt runtime. The release owner and
-QA workers must finish fresh native checks before publishing this preview:
+The rebuilt development and production configurations pass all 45 CTests.
+Native checks pass centered three-player gameplay and black pillars, every
+seat's matching private menu, fallback/resume, window resize and the unchanged
+four-player grid. Native keyboard charging/consumption covers Force Armor X
+in every possible seat across legal three/four-player rosters, including
+canonical fallback. The follow-up ownership gate in `mmx4_coop4.inc` keeps
+extra-seat stock icons out of P1's canonical fallback HUD.
 
-- Three-player gameplay, centered 4:3 P3, black pillars, all HUDs and personal
-  menus, canonical fallback and window resize; unchanged four-player 2x2.
-- Native stock charging and consumption for the eligible X forms/seats,
-  with Zero/Black Zero excluded from another hero's stock display.
-- Relevant local gameplay and online individual-view regressions, plus a
-  fresh extracted-package launcher/game smoke with the public defaults.
+The clean production candidate passes fresh original-disc boots, independent
+keyboard movement, resize, private menus and resume in both local layouts.
+Four production LAN peers also pass native movement/attacks, Force X's complete
+stock cycle, P4 leading with an independent camera, personal menus and resume;
+113 common core/mod CRC samples match through tick 3616. Both two-player
+rosters pass the imported Magma and Web Spider native regressions.
 
-The old preview's performance numbers and three/four-player gameplay reports
-remain historical evidence for their original binaries. No new full-campaign,
-Internet/ICE, cross-OS/CPU, all-weapon or full-speed qualification is claimed.
-Four-player save states and rewind remain blocked; native memory-card saves
-retain their existing separate isolation contract.
+Four Player Co-op has a confirmed separate Magma controller gap: P2 leading
+does not activate the volcano emitter or its boulders/rumble, while the matched
+P1 control works. Tracking: `beads-eio.9.244`. Stage prerequisite checks must
+not be presented as completed survivor-ladder or campaign qualification.
+The matched Web Spider approaches also establish a separate Four camera-area
+ownership gap: P1 admits the shaft bounds, P2 does not (`beads-eio.9.245`).
+The actual Four survivor-ladder case is unverified because this prerequisite
+was not met. See [the bounded stage checks](FOUR_PLAYER_107_STAGE_QA.md).
+Detailed scope and exact binaries are recorded in
+[FOUR_PLAYER_107_PRERELEASE_QA.md](FOUR_PLAYER_107_PRERELEASE_QA.md).
+
+The old preview's performance numbers remain historical evidence. No new
+full-campaign, Internet/ICE, cross-OS/CPU, all-weapon or full-speed qualification
+is claimed. Four-player save states and rewind remain blocked; native
+memory-card saves retain their existing separate isolation contract.

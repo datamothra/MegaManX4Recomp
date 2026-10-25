@@ -108,6 +108,13 @@ Full campaign, boss/door/script parity, vehicles, all weapon upgrades,
 Internet/ICE, spectators, cross-OS/CPU netplay and
 long-session cache pressure remain unqualified. The existing two-player
 engine's stage-specific fixes do not automatically cover this separate engine.
+The current preview confirms one such gap: with P1 waiting behind, P2 leading
+in Magma Dragoon does not activate the native volcano emitter, boulders or
+slope rumble. The matched P1 control works (`beads-eio.9.244`).
+Web Spider also retains a Four camera-area ownership gap: P2's shaft approach
+does not admit the native bounds that P1 admits (`beads-eio.9.245`). See
+[the current qualification record](FOUR_PLAYER_107_PRERELEASE_QA.md) for the
+new binary's checked behavior and remaining boundaries.
 P1 retains shared campaign ownership. The intro C4 door and individual pause
 menus have bounded native regression coverage. This is an experimental build.
 
