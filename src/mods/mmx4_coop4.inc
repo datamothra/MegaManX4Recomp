@@ -733,9 +733,15 @@ static int four_primary_sprite(CPUState *cpu,uint32_t address) {
     unsigned stock_owner=four_stored_charge_owner(actor);
     if(stock_owner && stock_owner<=four_roster.count) {
         unsigned seat=stock_owner-1;
+        unsigned private_view=psx_mod_local_view_scope()!=0;
+        unsigned hud_seat=private_view?local_view_seat:0;
+        /* The canonical fallback has only P1's native HUD. Extra-seat
+         * displays belong to their private views, including when a private
+         * draw is refused. There is no shared/unified four-player HUD. */
         if(mmx4_roster_character(four_roster.hero[seat]) ||
-           (psx_mod_local_view_scope() && seat!=local_view_seat)) {
+           seat!=hud_seat) {
             psx_mod_counter_add("mmx4.coop4.stored-charge-hud-other-view-hidden",1);
+            if(!private_view)psx_mod_counter_add("mmx4.coop4.stored-charge-hud-canonical-hidden",1);
             return mmx4_coop_finish(cpu,0);
         }
         rendering=1;
