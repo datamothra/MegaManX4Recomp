@@ -238,7 +238,8 @@ with (root / 'runtime.log').open('wb') as log:
         assert not counters.get('mmx4.coop4.local-view-state-leak', 0), counters
         assert stats['verify_checks'] > 0 and not any(stats[k] for k in
             ('verify_mismatch', 'aborted', 'watchdog', 'vram_leaks')), stats
-        assert grid['published']['mode'] == 3 and grid['published']['valid'], grid
+        expected_mode = 4 if args.players == 3 else 3
+        assert grid['published']['mode'] == expected_mode and grid['published']['valid'], grid
         for event in report['presents']['events']:
             _, _, w, h = event[5]
             assert abs(w * 6 - h * 8) <= 8, event
