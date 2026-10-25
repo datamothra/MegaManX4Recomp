@@ -1,6 +1,9 @@
 # Four Player Co-op spike
 
-This branch starts from stable 1.0.6. It adds a separate, default-off
+This branch started from stable 1.0.6 and now incorporates stable 1.0.8.
+The current preview is `1.0.8-4p-spike.1`; its fresh native integration checks
+are tracked in [FOUR_PLAYER_107_INTEGRATION.md](FOUR_PLAYER_107_INTEGRATION.md).
+It adds a separate, default-off
 `mmx4.coop4` mod. Offline play uses independent split cameras. Online play has an individual
 4:3 camera and HUD for each participating peer. All peers must enable this
 mod, use the same build, and agree on the roster before starting.
