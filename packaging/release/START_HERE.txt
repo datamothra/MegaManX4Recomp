@@ -1,6 +1,6 @@
 MegaManX4Recomp - Mega Man X4, recompiled
 ==========================================
-1.0.6-4p-spike.1 - Four Player Co-op Preview 1 (Windows x64)
+1.0.7-4p-spike.1 - Four Player Co-op Preview (Windows x64)
 
 WHAT YOU NEED
   Your own original, unmodified Mega Man X4 (USA, SLUS-00561) disc image.
@@ -33,8 +33,9 @@ FOUR PLAYER CO-OP PREVIEW
   available. This mod disables the two-player and separate armor-code mods.
 
   Local play always uses independent split cameras: P1 top left, P2 top
-  right, P3 bottom left and P4 bottom right. With three players, P3 spans
-  the bottom half. Local unified four-player play is deferred.
+  right, P3 bottom left and P4 bottom right. With three players, P3 uses
+  one centered 4:3 pane below P1/P2, with black pillars on either side.
+  Local unified four-player play is deferred.
   Online camera choices are on Netplay; individual views are the default.
   Every peer must use this exact preview build and the same roster.
 
