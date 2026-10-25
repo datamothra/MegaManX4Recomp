@@ -16,6 +16,7 @@
 #define EFFECT 0x8013E510u
 #define PARTICLE_ALLOC 0x8002AE50u
 #define PARTICLE_INIT 0x800CAE38u
+#define STOCK_HUD 0x800B2C8Cu
 #define PARTICLE 0x80173CA0u
 #define WATER 0x800AF22Cu
 #define SLIDE_EFFECT 0x800AEAC0u
@@ -100,6 +101,7 @@ static unsigned double_model;
 static uint8_t attack_type[2];
 static uint32_t double_tick(void);
 static unsigned particle_initializations,particle_character;
+static unsigned stock_hud_updates;
 static unsigned water_updates;
 static unsigned charge_updates;
 static unsigned weapon_uploads;
@@ -371,6 +373,15 @@ uint32_t mmx4_coop_call(CPUState *cpu,uint32_t address,uint32_t a0,uint32_t a1) 
         psx_mod_write_byte(a0+4,1);
         return 0xABCDEF01u;
     }
+    if(address==STOCK_HUD) {
+        ++stock_hud_updates;
+        CHECK(!psx_mod_read_byte(MMX4_PLAYER+2));
+        /* Native B2D04..B2D3C consumes A6 solely to select the display frame. */
+        unsigned count=psx_mod_read_byte(MMX4_PLAYER+0xA6);
+        psx_mod_write_byte(a0+3,(uint8_t)(count!=0));
+        psx_mod_write_byte(a0+0x47,(uint8_t)(31-count));
+        return 0xABCDEF02u;
+    }
     if(address==SHOT_EFFECT) {
         /* B28E0/B2924 follow the saved parent address in the current shot
          * arena. Identical guest pointers refer to different seats' shots. */
@@ -636,6 +647,37 @@ static void death_particle_ownership(void) {
         mmx4_coop_combat_reset();psx_mod_write_byte(PARTICLE+1,0x11);
         CHECK(!filter(PARTICLE_INIT)(&cpu,PARTICLE_INIT));
     }
+}
+static void stored_charge_hud_ownership(void) {
+    setup();allocated_actor=PARTICLE;
+    psx_mod_write_byte(MMX4_PLAYER+2,1);second[2]=0;
+    psx_mod_write_byte(MMX4_PLAYER+0xA6,7);second[0xA6]=4;
+    mmx4_coop_enter_second();CHECK(invoke(PARTICLE_ALLOC)==PARTICLE);mmx4_coop_leave_second();
+    psx_mod_write_byte(PARTICLE,0x21);psx_mod_write_byte(PARTICLE+1,0x36);
+    CHECK(mmx4_coop_stored_charge_owner(PARTICLE)==1);
+    uint8_t p1[sizeof second],p2[sizeof second];
+    memcpy(p1,address_ptr(MMX4_PLAYER),sizeof p1);memcpy(p2,second,sizeof p2);
+    CPUState cpu={0};cpu.gpr[4]=PARTICLE;
+    stock_hud_updates=0;
+    CHECK(filter(STOCK_HUD)(&cpu,STOCK_HUD) && cpu.gpr[2]==0xABCDEF02u);
+    CHECK(stock_hud_updates==1 && psx_mod_read_byte(PARTICLE+3)==1 && psx_mod_read_byte(PARTICLE+0x47)==27);
+    CHECK(!projected && mmx4_coop_combat_snapshot_ready());
+    CHECK(!memcmp(p1,address_ptr(MMX4_PLAYER),sizeof p1) && !memcmp(p2,second,sizeof p2));
+    second[0xA6]=0;
+    CHECK(filter(STOCK_HUD)(&cpu,STOCK_HUD) && !psx_mod_read_byte(PARTICLE+3));
+    CHECK(psx_mod_read_byte(MMX4_PLAYER+0xA6)==7 && !second[0xA6]);
+    /* Private draws never tick this controller, and unrelated/misaligned
+     * actors cannot borrow an allocation owner's presentation. */
+    local_view=1;CHECK(!filter(STOCK_HUD)(&cpu,STOCK_HUD));local_view=0;
+    CHECK(mmx4_coop_stored_charge_owner(PARTICLE+1)==-1);
+    CHECK(mmx4_coop_stored_charge_owner(PARTICLE-0x60)==-1);
+    CHECK(mmx4_coop_stored_charge_owner(PARTICLE+64*0x60)==-1);
+    psx_mod_write_byte(PARTICLE+1,0x35);CHECK(mmx4_coop_stored_charge_owner(PARTICLE)==-1);
+    CHECK(!filter(STOCK_HUD)(&cpu,STOCK_HUD));
+    /* Reallocation by P1 clears P2 ownership. P1 then uses the native
+     * update unchanged; no additional simulation or charge consumption. */
+    invoke(PARTICLE_ALLOC);psx_mod_write_byte(PARTICLE+1,0x36);
+    CHECK(mmx4_coop_stored_charge_owner(PARTICLE)==0 && !filter(STOCK_HUD)(&cpu,STOCK_HUD));
 }
 static void accepted_events(void) {
     setup();boss_immunity[0]=1;hit_result[0]=1;hit_result[1]=2;
@@ -1407,6 +1449,7 @@ static void aiming_beam_owner(void) {
     cpu.gpr[4]=0x801441B0u;CHECK(!filter(0x800D67DCu)(&cpu,0x800D67DCu));
 }
 int main(void) {
+    stored_charge_hud_ownership();
     aiming_beam_owner();
     accepted_events();independent_solids();aim_selection();effect_ownership();armor_handoff();armor_forced_dismount();independent_hit_tokens();
     split_native_targets();

@@ -477,6 +477,22 @@ static int particle_slot(uint32_t actor) {
        (actor-PARTICLE_POOL)%PARTICLE_STRIDE)return -1;
     return (int)((actor-PARTICLE_POOL)/PARTICLE_STRIDE);
 }
+int mmx4_coop_stored_charge_owner(uint32_t actor) {
+    int slot=particle_slot(actor);
+    return slot>=0 && psx_mod_read_byte(actor+1)==0x36 ? particles[slot].owner : -1;
+}
+static int stored_charge_hud(CPUState *cpu,uint32_t address) {
+    /* Native35558 creates type54 only for X. B2C8C later reads PLAYER+A6
+     * and SCRATCH+1C from the shared particle pass: those must still belong
+     * to the allocating X when Zero owns the canonical player slot. */
+    if(personal_effect_call || !world_ready() || psx_mod_local_view_scope() ||
+       mmx4_coop_stored_charge_owner(cpu->gpr[4])!=1)return 0;
+    personal_effect_call=1;mmx4_coop_enter_second();
+    uint32_t result=mmx4_coop_call(cpu,address,cpu->gpr[4],cpu->gpr[5]);
+    mmx4_coop_leave_second();personal_effect_call=0;
+    psx_mod_counter_add("mmx4.coop.p2-stored-charge-hud-ticks",1);
+    return mmx4_coop_finish(cpu,result);
+}
 static int allocate_particle(CPUState *cpu,uint32_t address) {
     if(particle_allocation_call)return 0;
     particle_allocation_call=1;
@@ -976,6 +992,7 @@ PSX_MOD_CONSTRUCTOR(mmx4_register_coop_combat) {
     psx_mod_register_function_filter_plugin(COOP_ID,0x800B2AD0u,personal_effect);
     psx_mod_register_function_filter_plugin(COOP_ID,0x800D67DCu,aiming_laser_beam);
     psx_mod_register_function_filter_plugin(COOP_ID,PARTICLE_ALLOCATE,allocate_particle);
+    psx_mod_register_function_filter_plugin(COOP_ID,0x800B2C8Cu,stored_charge_hud);
     psx_mod_register_function_filter_plugin(COOP_ID,PARTICLE_INITIALIZE,initialize_character_particle);
     psx_mod_register_function_filter_plugin(COOP_ID,0x8009485Cu,initialize_character_particle);
     psx_mod_register_function_filter_plugin(COOP_ID,0x80098474u,initialize_character_particle);
