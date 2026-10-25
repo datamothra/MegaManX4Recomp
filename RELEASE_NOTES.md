@@ -1,3 +1,48 @@
+# Mega Man X4 Recompiled - Four Player Co-op Preview 1
+
+**`1.0.6-4p-spike.1` - experimental Windows x64 prerelease.**
+Based on stable 1.0.6, published from `spike/four-player-coop`; this preview does
+not replace the stable download. Supply your own original USA disc as usual.
+
+- Enable **Mods -> Four Player Co-op**, and assign Player 1-4 in **Controls**.
+  Three-player play uses **Player 4 -> None**. The mod starts disabled.
+- Choose unique complete forms: X, Fourth (Force) Armor X, Ultimate Armor X,
+  Zero and Black Zero. Defaults are X / Zero / Ultimate X / Black Zero.
+  Four Player Co-op disables the two-player mod and the separate armor code mods.
+- Local play uses an 8:6 split canvas: P1 top left, P2 top right, P3 bottom left
+  and P4 bottom right. In three-player play P3 spans the bottom half. Local
+  unified play is deferred. Online cameras are configured in Netplay and default
+  to each peer's individual view; all peers need this build and the same roster.
+- Each player gets the matching X/Zero pause menu, arrival animation and HUD.
+  This includes the corrected temporary red damage trail, initial HUD placement,
+  all-layer background tile seams and stray Black Zero art in Button Config.
+  Living players are gathered/protected during doors and room transfers.
+- **Co-op Free Cutscenes** is a separate, default-off experiment for partner
+  control during scenes, with doors/room transfers retaining their safety rules.
+- Includes the shared-runtime gameplay optimizations and render worker used in
+  the approved build. Clean preview defaults use OpenGL at native internal
+  resolution, windowed, with normal audio. Resolution remains configurable.
+  Heavy gameplay performance still needs broader qualification.
+- Diagnostic recording remains optional and off by default. CD Speed, Fast
+  Loading and developer cheats are absent. No game discs, Japanese media,
+  personal saves, bindings or disc paths are bundled.
+
+**Known limits:** four-player save states and rewind are blocked. Native
+memory-card saves use the existing mod isolation. Full-campaign progression,
+all bosses/doors/scripts, vehicles, all weapons, Internet/ICE, spectators and
+cross-OS/CPU four-player matches have not been qualified. Some legacy two-player
+Unified/Widescreen menu and Split pause-close cases remain under investigation.
+Do not assume earlier two-player stage fixes qualify four-player behavior.
+
+Validation includes 45/45 Windows checks on the production build, GCC/Clang
+portable HUD fixtures, native three/four-player HUD and background regressions,
+production keyboard/pause smoke, and four production LAN peers with 106 matching
+core/mod CRC samples through tick 3424. These are bounded checks, not a complete
+campaign or Internet qualification. See [four-player setup](docs/EXPERIMENTAL_FOUR_PLAYER.md),
+[HUD evidence](docs/FOUR_PLAYER_HUD_QA.md) and [layer evidence](docs/FOUR_PLAYER_LAYER_QA.md).
+
+---
+
 # Mega Man X4 Recompiled - 1.0.6 Stable Public Beta
 
 - Fixed Sigma 1's camera staying trapped near the first boss door after Player 1 dies. The surviving Player 2 can descend the ladder and land on the lower platform normally.
