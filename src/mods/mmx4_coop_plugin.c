@@ -1506,6 +1506,22 @@ static void local_context_restore(const LocalViewContext *context) {
     menu_texture_owner=context->menu_texture_owner;
     mmx4_coop_lifecycle_view_restore();mmx4_widescreen_view_restore();
 }
+static void draw_local_fade(uint32_t buffer) {
+    unsigned shade=mmx4_coop_lifecycle_menu_fade(buffer);
+    if(shade) {
+        /* Clearing the private ordering table drops the shared fade task's
+         * screen tile. Replay its current shade after the private image; the
+         * render transaction restores GPU state, and never advances the fade. */
+        unsigned index=buffer==0x80166CB0u;
+        uint32_t mode=psx_mod_read_word(0x8012F49Cu+index*8u);
+        if((mode>>24)!=0xE1u)mode=0xE1000045u;
+        gpu_set_gp0_source(0);
+        gpu_write_gp0(mode);
+        gpu_write_gp0(0x62000000u|shade|(shade<<8)|(shade<<16));
+        gpu_write_gp0(0);
+        gpu_write_gp0(0x00F00140u);
+    }
+}
 static int draw_local_view(CPUState *cpu,void *user,uint32_t alpha) {
     (void)alpha;
     uint32_t buffer=*(uint32_t *)user;
@@ -1529,26 +1545,14 @@ static int draw_local_view(CPUState *cpu,void *user,uint32_t alpha) {
     }else guest(cpu,0x80023D68u,0,0);
     if(failed || projected || rendering || hud_call)return 0;
     guest(cpu,0x800EC228u,buffer+0x9Cu,0);
-    unsigned shade=mmx4_coop_lifecycle_menu_fade(buffer);
-    if(shade) {
-        /* Clearing the private ordering table drops the shared fade task's
-         * screen tile. Replay its current shade after the private image; the
-         * render transaction restores GPU state, and never advances the fade. */
-        unsigned index=buffer==0x80166CB0u;
-        uint32_t mode=psx_mod_read_word(0x8012F49Cu+index*8u);
-        if((mode>>24)!=0xE1u)mode=0xE1000045u;
-        gpu_set_gp0_source(0);
-        gpu_write_gp0(mode);
-        gpu_write_gp0(0x62000000u|shade|(shade<<8)|(shade<<16));
-        gpu_write_gp0(0);
-        gpu_write_gp0(0x00F00140u);
-    }
+    draw_local_fade(buffer);
     return !failed;
 }
 static int draw_local_pair(CPUState *cpu,void *user,uint32_t seat) {
     LocalViewContext context;
     local_context_save(&context);
-    int story=mmx4_coop_lifecycle_script_owner()>=0 && !mmx4_coop_lifecycle_paired_door();
+    int story=mmx4_coop_lifecycle_script_owner()>=0 && !mmx4_coop_lifecycle_paired_door() &&
+        !mmx4_coop_lifecycle_free_views();
     local_view_seat=mmx4_coop_lifecycle_personal_menus() || story?seat:mmx4_coop_split_view_seat(seat);
     int ok=draw_local_view(cpu,user,0);
     /* Host plugin contexts must return to the common baseline between views,

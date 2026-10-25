@@ -245,7 +245,8 @@ int mmx4_coop_split_camera_copy(unsigned seat,uint8_t layers[0xFC]) {
     /* Initial arrivals render before the first enabled camera tick. Use the
      * authored starting camera without mutating snapshot state in a draw. */
     if(!psx_mod_read_word(state) ||
-       (mmx4_coop_lifecycle_script_owner()>=0 && !mmx4_coop_lifecycle_paired_door())) {
+       (mmx4_coop_lifecycle_script_owner()>=0 && !mmx4_coop_lifecycle_paired_door() &&
+        !mmx4_coop_lifecycle_free_views())) {
         /* Scripted pans advance the native camera while private gameplay
          * cameras are parked. Share the pan, retaining each pane's own HUD. */
         read_bytes(CAMERA,layers,CAMERA_BYTES);return 1;
