@@ -1,4 +1,59 @@
-# Mega Man X4 Recompiled - Four Player Co-op Preview 1
+# Mega Man X4 Recompiled - Four Player Co-op Preview
+
+**`1.0.7-4p-spike.1` - experimental Windows x64 prerelease.**
+This feature-branch preview incorporates stable 1.0.7. The stable two-player
+release remains a separate download. Supply your own original USA disc.
+
+- Three-player Split now uses three 4:3 panes: P1/P2 across the top, P3 centered
+  below with black pillars on either side. Four-player Split retains its 2x2
+  grid. Menus, movies and temporary canonical fallback use the same placement.
+- X's stored charged-shot display belongs to its allocating seat. Each private
+  view shows only its own X variant's stock; Zero and Black Zero do not inherit
+  another player's icons. Controllers use the owning character's resources.
+- Includes stable 1.0.7's two-player Magma first-slope rumble, Web Spider
+  survivor-ladder correction and stored-charge HUD fix. Four-player stage
+  behavior uses its own engine and still requires separate qualification.
+- Enable **Mods -> Four Player Co-op**, then assign Player 1-4 in **Controls**.
+  Set Player 4 to **None** for three players. Complete forms must be unique;
+  defaults remain X / Zero / Ultimate Armor X / Black Zero. The two-player
+  mod and separate Ultimate Armor/Black Zero code mods are mutually exclusive
+  with Four Player Co-op.
+- Independent local Split and individual online views remain available. Local
+  unified play is deferred. **Co-op Free Cutscenes** remains a separate,
+  default-off experiment; doors and room transfers retain their safety rules.
+- Preview defaults retain OpenGL, native internal resolution, the render worker,
+  windowed presentation and normal audio. HLE textured batching and bounded
+  extra-player/camera work remain part of this feature's ENHANCED profile.
+- Diagnostic recording remains optional and **off by default**. CD Speed, Fast
+  Loading and developer cheats are excluded. No discs, media packs, personal
+  saves, bindings or disc paths are bundled.
+
+**Qualification:** fresh native three/four-player layout, personal menus,
+stored-charge ownership, original-disc package boots and four-peer LAN checks
+pass. Both two-player rosters also pass the imported stage fixes.
+See [the preview qualification record](docs/FOUR_PLAYER_107_PRERELEASE_QA.md).
+Older preview results below describe their original binary and layout.
+
+**Known four-player stage limitation:** when P2 leads Magma Dragoon while P1
+waits behind, the volcano emitter remains idle: its boulders and slope rumble
+do not start. The matched P1-led control works. This is tracked separately as
+`beads-eio.9.244`; the stable two-player correction does not fix this separate
+four-player controller path.
+Web Spider also has a Four-specific camera-area gap: P2 entering the shaft
+does not admit the bounds that a matched P1 approach admits (`beads-eio.9.245`).
+The subsequent Four survivor-ladder case remains unverified.
+
+Four-player save states and rewind remain blocked; native memory-card saves
+retain their existing isolation. Full-campaign, all boss/door/script paths,
+vehicles, all weapons, Internet/ICE and cross-OS/CPU matches remain unqualified.
+No new performance result or full-speed guarantee is claimed by this merge.
+See [setup and limits](docs/EXPERIMENTAL_FOUR_PLAYER.md),
+[centered layout checks](docs/THREE_PLAYER_CENTERED_QA.md), and
+[stored-charge evidence](docs/COOP_STORED_CHARGE_HUD.md).
+
+---
+
+# Previous Four Player Co-op Preview - 1.0.6-4p-spike.1
 
 **`1.0.6-4p-spike.1` - experimental Windows x64 prerelease.**
 Based on stable 1.0.6, published from `spike/four-player-coop`; this preview does
@@ -47,7 +102,25 @@ see [prerelease package checks](docs/FOUR_PLAYER_PRERELEASE_QA.md).
 
 ---
 
-# Mega Man X4 Recompiled - 1.0.6 Stable Public Beta
+# Mega Man X4 Recompiled - 1.0.7 Stable Public Beta
+
+- Fixed X's stored charged-shot indicators appearing under Zero's HUD. The icons now belong to the X player in Split and follow that player's HUD layout in Unified, including when Zero is Player 1.
+- Fixed missing screen shake when Player 2 leads down Magma Dragoon's first slope ahead of the rolling boulders. Each eligible camera retains its own native shake timing.
+- Fixed Web Spider's upper-ladder camera becoming trapped after Player 1 dies. The surviving Player 2 can descend to the lower floor and climb back normally; the existing Sigma 1 ladder correction is retained.
+- Diagnostic recording remains optional and **off by default**. Public packages omit CD Speed, Fast Loading and developer cheats. The original, unmodified USA disc remains required.
+
+**Both netplay peers must update.** Native memory-card saves carry forward;
+emulator save states are build-specific. Japanese movies, voices and title art,
+plus Spanish and Brazilian Portuguese text, retain their existing mod options.
+
+This is a focused two-player co-op update. See the
+[integration checks and qualification limits](docs/COOP_107_INTEGRATION.md),
+[stored-charge HUD evidence](docs/COOP_STORED_CHARGE_HUD.md),
+[first-slope evidence](docs/COOP_106_SLOPE_RUMBLE.md), and
+[survivor-ladder evidence](docs/COOP_WEB_SPIDER_LADDER_106.md).
+Full-campaign coverage and fresh cross-OS netplay remain unqualified.
+
+## Previous v1.0.6 Stable Public Beta
 
 - Fixed Sigma 1's camera staying trapped near the first boss door after Player 1 dies. The surviving Player 2 can descend the ladder and land on the lower platform normally.
 - Fixed Player 2 failing to trigger the platform-breaking fireballs at the beginning of Magma Dragoon's second area. The original fireball timers and terrain destruction now run with either player leading.
