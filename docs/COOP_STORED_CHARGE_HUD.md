@@ -33,8 +33,13 @@ UI bank and retain its left HUD anchor. Restore temporary draw coordinates and
 contexts before returning. No charge counter, gameplay body or native code is
 patched, and private views do not advance the controller.
 
-This correctness change is independent of the experimental four-player mod.
-Additional X seats need the feature branch's seat-aware ownership adaptation.
+The two-player correctness change is independent of the experimental
+four-player mod. On the feature branch, the four-player engine separately
+tracks all 64 particle slots with a 1-based allocating seat, resets ownership
+on allocation/stage initialization, and includes it in its synchronized
+digest. Each X variant's controller uses that seat's context and each private
+view draws only its own stock display. This works with the centered
+three-player presenter, whose draw callbacks are exactly seats 0, 1 and 2.
 
 ## Validation
 

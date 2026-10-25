@@ -29,6 +29,9 @@ static unsigned four_camera_owner;
 static unsigned four_actor_call,four_pending,four_function,four_reaction,four_reaction_actor;
 static unsigned four_draw_used[4];
 static uint8_t four_effect_owner[32];
+/* Native X stock displays live in the shared 60-byte particle pool. Each
+ * complete X form can allocate one; their counters and HUDs remain personal. */
+static uint8_t four_particle_owner[64];
 static unsigned four_allocation_call,four_effect_call,four_world_draw_call;
 static unsigned four_scan_call,four_supplemental,four_bounds_call;
 static unsigned four_death_call;
@@ -152,6 +155,7 @@ static uint32_t four_digest(void) {
     }
     hash=hash_word(hash,four_placement_table);hash=hash_bytes(hash,four_visited,sizeof four_visited);
     hash=hash_bytes(hash,four_effect_owner,sizeof four_effect_owner);
+    hash=hash_bytes(hash,four_particle_owner,sizeof four_particle_owner);
     for(unsigned seat=1;seat<four_roster.count;++seat) {
         hash=hash_player(hash,&four_seats[seat].player);
         hash=hash_bytes(hash,four_seats[seat].inventory,sizeof four_seats[seat].inventory);
@@ -191,6 +195,7 @@ static void four_reset(CPUState *cpu,uint32_t address) {
     enrolled=frames=four_contact_count=0;
     four_placement_table=0;memset(four_visited,0,sizeof four_visited);
     memset(four_effect_owner,0,sizeof four_effect_owner);
+    memset(four_particle_owner,0,sizeof four_particle_owner);
     memset(four_seats,0,sizeof four_seats);memset(four_contacts,0,sizeof four_contacts);
     mmx4_coop_personal_reset();
     memset(four_menu_previous,0,sizeof four_menu_previous);
@@ -552,7 +557,28 @@ static int four_allocate(CPUState *cpu,uint32_t address) {
     }
     if(address==0x8002AD3Cu && actor>=0x8013E510u && actor<0x8013F310u && (actor-0x8013E510u)%0x70u==0)
         four_effect_owner[(actor-0x8013E510u)/0x70u]=(uint8_t)((projected?four_current:0)+1);
+    if(address==0x8002AE50u && actor>=0x80173CA0u && actor<0x801754A0u && (actor-0x80173CA0u)%0x60u==0)
+        four_particle_owner[(actor-0x80173CA0u)/0x60u]=(uint8_t)((projected?four_current:0)+1);
     return mmx4_coop_finish(cpu,actor);
+}
+static unsigned four_stored_charge_owner(uint32_t actor) {
+    if(actor<0x80173CA0u || actor>=0x801754A0u || (actor-0x80173CA0u)%0x60u ||
+       psx_mod_read_byte(actor+1)!=0x36)return 0;
+    return four_particle_owner[(actor-0x80173CA0u)/0x60u];
+}
+static int four_stored_charge_tick(CPUState *cpu,uint32_t address) {
+    if(four_effect_call || !enrolled || failed || psx_mod_local_view_scope())return 0;
+    unsigned owner=four_stored_charge_owner(cpu->gpr[4]);
+    if(owner<2 || owner>four_roster.count)return 0;
+    unsigned previous=projected?four_current:0;
+    if(previous==owner-1)return 0;
+    four_effect_call=1;
+    if(previous)four_leave();four_enter(owner-1);
+    uint32_t result=guest(cpu,address,cpu->gpr[4],cpu->gpr[5]);four_leave();
+    if(previous)four_enter(previous);
+    four_effect_call=0;
+    psx_mod_counter_add("mmx4.coop4.stored-charge-hud-owner-ticks",1);
+    return mmx4_coop_finish(cpu,result);
 }
 static unsigned four_personal_effect_owner(uint32_t actor) {
     if(actor<0x8013E510u || actor>=0x8013F310u || (actor-0x8013E510u)%0x70u)return 0;
@@ -704,6 +730,33 @@ static int four_primary_sprite(CPUState *cpu,uint32_t address) {
     (void)address;
     if(rendering || projected || !enrolled || failed || !world_draw_visible())return 0;
     uint32_t actor=cpu->gpr[4];
+    unsigned stock_owner=four_stored_charge_owner(actor);
+    if(stock_owner && stock_owner<=four_roster.count) {
+        unsigned seat=stock_owner-1;
+        if(mmx4_roster_character(four_roster.hero[seat]) ||
+           (psx_mod_local_view_scope() && seat!=local_view_seat)) {
+            psx_mod_counter_add("mmx4.coop4.stored-charge-hud-other-view-hidden",1);
+            return mmx4_coop_finish(cpu,0);
+        }
+        rendering=1;
+        if(seat)four_enter(seat);
+        counterpart=seat?0:1;
+        uint32_t original=psx_mod_read_word(SCRATCH+0x100);
+        uint32_t base=arena+((psx_mod_read_word(SCRATCH)&1u)*4u+seat)*FRAME_ARENA;
+        uint32_t start=base+four_draw_used[seat];
+        psx_mod_write_word(SCRATCH+0x100,start);render_actor(cpu,actor,base,0);
+        uint32_t end=psx_mod_read_word(SCRATCH+0x100);
+        if(!failed)for(uint32_t at=start;at<end;at+=40) {
+            uint32_t expanded=base+40000+(at-base)*2;
+            psx_mod_tag_world_primitive(expanded,0);psx_mod_tag_world_primitive(expanded+40,0);
+            psx_mod_anchor_hud_primitive(expanded,-1);psx_mod_anchor_hud_primitive(expanded+40,-1);
+        }
+        four_draw_used[seat]=end-base;
+        psx_mod_write_word(SCRATCH+0x100,original);
+        if(seat)four_leave();rendering=0;
+        psx_mod_counter_add("mmx4.coop4.stored-charge-hud-owner-draws",1);
+        return mmx4_coop_finish(cpu,0);
+    }
     /* The shared world retains objects for every camera. Reject a foreign
      * view's offscreen sprites before native assembly/packet generation;
      * otherwise distant coordinates can wrap through the GPU's 11-bit XY.
@@ -898,6 +951,7 @@ static void four_activate(void) {
     mmx4_coop_personal_reset();
     four_allocation_call=four_effect_call=four_world_draw_call=0;
     memset(four_effect_owner,0,sizeof four_effect_owner);
+    memset(four_particle_owner,0,sizeof four_particle_owner);
     memset(four_visited,0,sizeof four_visited);
     /* Allocation is performed by activate's four-mode-aware layout below. */
     split_views=1;local_split=!psx_mod_netplay_is_active();
@@ -933,10 +987,11 @@ PSX_MOD_CONSTRUCTOR(mmx4_register_coop4) {
     psx_mod_register_function_filter_plugin(FOUR_ID,0x8002D9BCu,four_combat);
     psx_mod_register_function_filter_plugin(FOUR_ID,0x8002DD04u,four_combat);
     psx_mod_register_function_filter_plugin(FOUR_ID,0x8002E184u,four_solid);
-    const uint32_t allocations[]={0x8002AB74u,0x8002ACA4u,0x8002AC0Cu,0x8002ADBCu,0x8002AD3Cu};
+    const uint32_t allocations[]={0x8002AB74u,0x8002ACA4u,0x8002AC0Cu,0x8002ADBCu,0x8002AD3Cu,0x8002AE50u};
     for(unsigned i=0;i<sizeof allocations/sizeof allocations[0];++i)psx_mod_register_function_filter_plugin(FOUR_ID,allocations[i],four_allocate);
     const uint32_t effects[]={0x800AEAC0u,0x800AED18u,0x800AF22Cu,0x800AEED8u,0x800B28CCu,0x800B2A3Cu,0x800B2AD0u};
     for(unsigned i=0;i<sizeof effects/sizeof effects[0];++i)psx_mod_register_function_filter_plugin(FOUR_ID,effects[i],four_personal_effect);
+    psx_mod_register_function_filter_plugin(FOUR_ID,0x800B2C8Cu,four_stored_charge_tick);
     psx_mod_register_function_filter_plugin(FOUR_ID,0x80033BC8u,four_death);
     psx_mod_register_function_filter_plugin(FOUR_ID,0x80035A6Cu,four_death);
     psx_mod_register_function_filter_plugin(FOUR_ID,0x80028E24u,four_scan);
