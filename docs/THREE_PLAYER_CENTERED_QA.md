@@ -45,6 +45,18 @@ framework `2f3f384` and the development executable SHA256
 - Actual recomp-ui captures showed only **Local cameras: Split screen**
   offline, only **Online cameras: Individual** in the online context, and
   the local option again after returning through the dashboard.
+- The four-player comparison retained its 2x2 grid at both window sizes.
+  All four real keyboard seats moved independently, the last seat led with
+  its own camera, X/Zero/X/Zero private menus and individual cursors worked,
+  and fallback/resume passed. There were 2,696 render verification checks
+  before the story probe, with no mismatch, abort, watchdog or VRAM leak.
+- With the separate free-cutscene mod enabled, the native intro gate was
+  crossed after removing the input probe's damage grace. HP127 cushioned
+  ordinary damage. A declared offline frozen-world setup then proved that
+  P2/P3/P4 moved over 20 pixels while scripted P1 stayed within 2 pixels.
+  Restoring the original freeze byte and using normal confirmation let the
+  native story controller release the scene and enter the next section;
+  every player survived. This ended with 7,336 clean render verifications.
 
 ![Three equal gameplay panes with centered P3](images/three-player-centered-gameplay.png)
 
@@ -53,6 +65,22 @@ framework `2f3f384` and the development executable SHA256
 The movement/controller probe used a declared offline native damage-grace
 fixture to isolate input ownership. It does not qualify death or door
 mechanics. These are bounded Windows development-build presentation checks,
-not timing benchmarks or an exhaustive stage audit. Production archive
-qualification is recorded separately. Earlier wide-bottom three-player
+not timing benchmarks or an exhaustive stage audit.
+
+The production candidate ZIP also passed native offline three-player and
+four-player smokes with executable SHA256
+`dfbe5f2b5fafc010369a8065b66986a502939a0f59a8b759ad04516f39673570`.
+Each fresh extracted copy booted the original disc with the public relative
+EXE path still unresolved, enrolled every player alive, accepted independent
+per-seat keyboard movement, resized its owned hidden client from 960x720 to
+1280x720, opened private menus through the last seat, and resumed normally.
+These checks used read-only process observations and normal keyboard input;
+no simulation fixtures or RAM writes were used. Recording stayed off in the
+successful smokes. The production launcher's camera visibility and clean
+windowed/native/render-worker/normal-audio defaults also passed.
+
+Actual gameplay PNG and pixel evidence above comes from the development
+build. X4's custom diagnostic recorder has no framework incident-PNG hook;
+an initial production capture attempt established that limitation and was
+replaced by the read-only native smokes. Earlier wide-bottom three-player
 screenshots and reports document the previous layout only.
