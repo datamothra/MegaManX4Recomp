@@ -1953,6 +1953,27 @@ int main(void) {
     CHECK(invoke(&cpu,0x8002B1E8u));local_scope=0;
     script_owner=0;CHECK(invoke(&cpu,0x8002B1E8u));
     CHECK(mmx4_coop_split_camera_copy(1,view) && view[10]==0 && view[11]==0);script_owner=-1;
+    /* A live scripted pan must advance all three layers in both panes,
+     * rather than replaying either seat's parked gameplay camera. */
+    uint8_t before_scene[0xFC];
+    for(unsigned offset=0;offset<sizeof before_scene;++offset)
+        before_scene[offset]=psx_mod_read_byte(CAMERA+offset);
+    for(unsigned owner=0;owner<2;++owner) {
+        script_owner=(int)owner;
+        for(unsigned layer=0;layer<3;++layer)
+            actor_position(CAMERA+layer*0x54,704+(int)layer*32,320+(int)layer*16);
+        for(unsigned offset=0;offset<sizeof canonical;++offset)
+            canonical[offset]=psx_mod_read_byte(CAMERA+offset);
+        uint32_t saved=mmx4_coop_split_digest(2166136261u);
+        for(unsigned seat=0;seat<2;++seat) {
+            CHECK(mmx4_coop_split_camera_copy(seat,view));
+            CHECK(!memcmp(view,canonical,sizeof view));
+        }
+        CHECK(saved==mmx4_coop_split_digest(2166136261u));
+    }
+    script_owner=-1;
+    for(unsigned offset=0;offset<sizeof before_scene;++offset)
+        psx_mod_write_byte(CAMERA+offset,before_scene[offset]);
     /* A physical paired crossing keeps separate camera origins, including
      * the native opening lock. Real boss scenes still share their view. */
     script_owner=0;paired_door=1;psx_mod_write_byte(MMX4_PLAY+0x1C,1);

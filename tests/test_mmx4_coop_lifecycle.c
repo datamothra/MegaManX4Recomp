@@ -1066,9 +1066,18 @@ static int simultaneous_menu_ownership(void) {
         psx_mod_write_half(PLAY+0x5A,0x1000);psx_mod_write_byte(PLAY+0x5C,0x83);
         inputs[opener]=START;mmx4_coop_call(&cpu,0x8001FF8Cu,PLAY,0);
         CHECK(menu_active && personal_active && personal_eligible==3);
+        /* The native stage still owns pause entry's fade. Personal menu
+         * assets are not ready yet, but both private world views are. */
+        CHECK(mmx4_coop_lifecycle_paused_world() && !mmx4_coop_lifecycle_personal_menus());
+        psx_mod_write_byte(0x80141BDCu,1);psx_mod_write_byte(0x80169D7Cu,96);
+        CHECK(mmx4_coop_lifecycle_menu_fade(0x80166C10u)==96);
+        psx_mod_write_byte(0x80141BDCu,0);
         inputs[0]=inputs[1]=0;
-        for(unsigned i=0;i<4;++i)mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);
+        mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);
+        CHECK(!personal_initialized && !menu_asset_calls[0] && !menu_asset_calls[1]);
+        for(unsigned i=0;i<3;++i)mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);
         CHECK(personal_initialized && personal_menu[0].native[4]==1 && personal_menu[1].native[4]==1);
+        CHECK(!mmx4_coop_lifecycle_paused_world());
         CHECK(!world_calls && !personal_draws[0] && !personal_draws[1]);
         /* Both cursors advance independently in a single simulation frame. */
         inputs[0]=inputs[1]=0x4000;
@@ -1167,6 +1176,17 @@ static int simultaneous_menu_ownership(void) {
     inputs[1]=SELECT;mmx4_coop_call(&cpu,0x8002FCACu,MENU,0);
     CHECK(personal_menu[0].native[5]==6 && personal_modal_owner==1);
     CHECK(personal_menu[1].native[5]!=6 && !projected);
+    /* Quit's backdrop fades retain both portraits. Only the nested native
+     * confirmation frontend becomes shared, including before its call returns. */
+    for(unsigned phase=0;phase<5;++phase) {
+        personal_menu[0].native[6]=(uint8_t)phase;
+        CHECK(mmx4_coop_lifecycle_personal_menus()==(phase!=2));
+    }
+    personal_menu[0].native[6]=1;personal_menu_write(&personal_menu[0]);
+    psx_mod_write_byte(MENU+6,2);personal_pass=1;personal_seat=0;
+    CHECK(!mmx4_coop_lifecycle_personal_menus());
+    psx_mod_write_byte(MENU+6,3);CHECK(mmx4_coop_lifecycle_personal_menus());
+    personal_pass=0;personal_menu[0].native[6]=0;
     {
         Mmx4SnapshotIO count={NULL,NULL,0,0,MMX4_SNAPSHOT_COUNT,1};
         CHECK(mmx4_coop_lifecycle_snapshot(&count));

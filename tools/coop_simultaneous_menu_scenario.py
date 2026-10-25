@@ -177,14 +177,16 @@ def simultaneous_menus(s, capture=None):
     # Either seat can open shared Quit; its initiator controls confirmation.
     opened(1);pulse(0xfffe,1)
     s.wait('p2-quit-modal',lambda q:q['menu']==[1,6],20)
-    frames(50);shot('p2-quit-modal')
+    s.wait('p2-quit-ready',lambda q:q['menu_detail'][4:8]==[1,6,2,1] and not q['warning'],20)
+    shot('p2-quit-modal')
     pulse(0xbfff,0)
     assert list(r.read(0x801721c0,2))==[6,2] and r.read(0x801754a5,1)[0]==6
     pulse(0xbfff,1)
     s.wait('p2-quit-cancelled',lambda q:q['menu'][0]==1 and q['menu'][1]<3,20)
     pulse(0xfffe,0)
     s.wait('campaign-quit-modal',lambda q:q['menu']==[1,6],20)
-    frames(50);shot('campaign-quit-modal')
+    s.wait('campaign-quit-ready',lambda q:q['menu_detail'][4:8]==[1,6,2,1] and not q['warning'],20)
+    shot('campaign-quit-modal')
     pulse(0xffb7,1)
     assert list(r.read(0x801721c0,2))==[6,2] and r.read(0x801754a5,1)[0]==6
     pulse(0xbfff,0) # Native default is Continue.
