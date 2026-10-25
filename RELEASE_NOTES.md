@@ -1,5 +1,20 @@
 # Mega Man X4 Recompiled - Four Player Co-op Preview
 
+**`1.0.9-4p-spike.1` - experimental Windows x64 prerelease.**
+Rebased onto stable 1.0.9, with every existing Four Player fix retained.
+
+- Carries the stable cutscene/pause presentation polish into all three/four private views, including native fades and returning from Continue / Quit to each player's own pause portrait.
+- Retains centered three-player presentation, the four-player grid, per-seat HUD ownership, personal menus, arrival animations and background-layer fixes.
+- Four Player Co-op and Free Cutscenes remain separate, default-off mods. Local unified 4P is deferred. Diagnostic recording remains off by default; CD Speed, Fast Loading and developer cheats are excluded.
+- Known Four-specific Magma activation, Web Spider camera-area ownership and heavy-gameplay performance gaps remain open.
+
+The original USA disc remains required. All peers must use this exact preview.
+Native memory-card saves retain their mod isolation; four-player save states
+and rewind remain unavailable. Full-campaign, Internet and cross-platform
+four-player play remain unqualified. See [setup and limits](docs/EXPERIMENTAL_FOUR_PLAYER.md).
+
+## Previous 1.0.8 Four Player Preview
+
 **`1.0.8-4p-spike.1` - experimental Windows x64 prerelease.**
 Rebased onto stable 1.0.8 with every existing Four Player fix retained.
 
