@@ -15,8 +15,8 @@ permanent upgrades follow P1's campaign. Lives represent team retries. A dead
 partner waits for the team's retry. Either living player can use Select in
 the pause menu to Quit, including P2 while P1 is dead.
 
-Unified cameras are the local default; Local co-op display also offers experimental
-side by side 8:3. HUD layout can be Stacked or Side by side.
+Unified cameras are the local default; Local co-op display also offers
+Side by side 8:3. HUD layout can be Stacked or Side by side.
 With Independent pause menus enabled (the default), either player's Start/Options
 binding opens both heroes' native menus. Each player manages their own weapons,
 techniques and E-tank energy; either player resumes after healing finishes.
@@ -32,7 +32,7 @@ sign-in. Both players need their own matching USA disc and the same release.
 Two players are supported. Online startup reports remain open; this release's
 camera validation used LAN peers.
 
-The host chooses Unified or experimental Split cameras and the shared co-op
+The host chooses Unified or Split cameras and the shared co-op
 options. Split gives each peer a separate view of the same simulation; health
 pickups refill the collector without pausing the other player. Unified keeps
 the native refill pause. Genuine scene changes still carry living partners

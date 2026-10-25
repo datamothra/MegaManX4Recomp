@@ -43,7 +43,7 @@ The netplay host chooses the shared options.
 <p align="center">
   <img src="docs/images/split-x.png" width="48%" alt="Player 1's independent view follows X in a lower Jungle passage">
   <img src="docs/images/split-zero.png" width="48%" alt="Player 2's independent view follows Zero near a different waterfall">
-  <br><em>One shared world, two independent netplay views. Split remains experimental.</em>
+  <br><em>One shared world, two independent netplay views.</em>
 </p>
 
 <p align="center">
