@@ -31,15 +31,15 @@ class Scenarios:
     def magma_slope_rumble(self):
         from coop_magma_105_scenarios import magma_slope_rumble
         return magma_slope_rumble(self)
+
     def spider_ladder_pair(self):
         from coop_spider_ladder_scenario import spider_ladder_survivor
         return spider_ladder_survivor(self,kill_partner=False)
+
     def spider_ladder_survivor(self):
         from coop_spider_ladder_scenario import spider_ladder_survivor
         return spider_ladder_survivor(self)
-    def stock_charge_hud(self):
-        from coop_stock_charge_scenario import stock_charge_hud
-        return stock_charge_hud(self)
+
     def free_cutscenes(self):
         from coop_debug import capture_pair
         owner=self.free_scene_owner
@@ -2492,7 +2492,7 @@ def main():
     env['SDL_AUDIODRIVER']='dummy'
     if args.diagnostic_watchdog_seconds:
         env['PSX_STARVATION_TIMEOUT_US']=str(args.diagnostic_watchdog_seconds*1000000)
-    if any(case in args.cases for case in ('local_pair','local_canvas','personal_menus','stock_charge_hud','free_cutscenes')):
+    if any(case in args.cases for case in ('local_pair','local_canvas','personal_menus','free_cutscenes','stock_charge_hud')):
         env['PSX_RENDER_PASS_VERIFY']='1'
     argv = [str(executable), '--hidden-window' if args.hidden_window else '--headless-opengl', '--no-launcher', '--debug-port', str(args.port),
             '--game', str(args.output / 'game.toml'), '--bios', str(args.bios), '--disc', str(args.disc),
