@@ -1404,6 +1404,9 @@ int main(void) {
         CHECK(body_word(p2,8)==psx_mod_read_word(PLAYER+8)+(24u<<16));
         CHECK(psx_mod_read_byte(PLAYER+5)==0 && psx_mod_read_byte(PLAYER+0x67)==255);
         for(unsigned tick=0;tick<3;++tick) {
+            /* The primary beam's entry marker can clear before its action
+             * finishes; the remaining arrival is identified by state/action. */
+            if(tick && finish_first)psx_mod_write_byte(PLAYER+0x67,0);
             if(tick && !finish_first) {
                 psx_mod_write_byte(PLAYER+5,(uint8_t)(tick==1?4:13));
                 psx_mod_write_byte(PLAYER+0x67,0);psx_mod_write_byte(PLAYER+0x89,8);
@@ -1419,10 +1422,24 @@ int main(void) {
             for(unsigned i=0;i<sizeof first_body;++i)CHECK(first_body[i]==psx_mod_read_byte(PLAYER+i));
             for(unsigned layer=0;layer<3;++layer)CHECK(!psx_mod_read_byte(0x801419F4u+layer*0x54u));
             CHECK(body_word(p2,8)==96u<<16 && body_word(p2,12)==202u<<16);
-            CHECK(initial_arrival==(tick<2));
+            CHECK(initial_arrival==(tick<2 || finish_first));
+            CHECK(mmx4_coop_lifecycle_initial_arrival()==(tick<2 || finish_first));
         }
         CHECK(p2[5]==2 && !p2[0x67] && !warp_phase && !projected);
         CHECK(p2[0x5C]==12 && psx_mod_read_byte(PLAYER+0x5C)==16);
+        if(finish_first) {
+            /* P2's shorter animation must not end the paired presentation:
+             * doing so duplicates the combined/stacked HUD into both panes.
+             * Let P1 finish through its original controller, then visit P2
+             * once more at the ordinary projection boundary. */
+            CHECK(psx_mod_read_byte(PLAY+0x1C)==1 && initial_arrival);
+            for(unsigned tick=0;tick<3;++tick)
+                mmx4_coop_call(&cpu,0x800311ECu,PLAYER,0);
+            CHECK(psx_mod_read_byte(PLAYER+5)==2 && !psx_mod_read_byte(PLAY+0x1C));
+            mmx4_coop_enter_second();mmx4_coop_call(&cpu,0x800311ECu,PLAYER,0);mmx4_coop_leave_second();
+            CHECK(!initial_arrival && !mmx4_coop_lifecycle_initial_arrival());
+            CHECK(initial_control_calls[0]==3 && initial_control_calls[1]==3);
+        }
     }
     /* Cyber 6/1 begins at Y768 with an authored eight-tick geometry wait;
      * a delayed enrollment retains the remaining wait at its current Y.
@@ -1461,7 +1478,11 @@ int main(void) {
         for(unsigned tick=0;tick<3;++tick) {
             mmx4_coop_enter_second();mmx4_coop_call(&cpu,0x800311ECu,PLAYER,0);mmx4_coop_leave_second();
         }
-        CHECK(!initial_arrival && p2[5]==2 && !p2[0x67] && p2[0x5C]==12);
+        CHECK(initial_arrival && p2[5]==2 && !p2[0x67] && p2[0x5C]==12);
+        for(unsigned tick=0;tick<remaining+3;++tick)
+            mmx4_coop_call(&cpu,0x800311ECu,PLAYER,0);
+        mmx4_coop_enter_second();mmx4_coop_call(&cpu,0x800311ECu,PLAYER,0);mmx4_coop_leave_second();
+        CHECK(!initial_arrival && !mmx4_coop_lifecycle_initial_arrival());
     }
     prepare_initial_arrival();mmx4_coop_lifecycle_enrolled(&cpu);
     psx_mod_write_byte(PLAY+0x1C,0);p2[0x67]=0;inputs[1]=SELECT;
@@ -1538,6 +1559,8 @@ int main(void) {
                 CHECK(psx_mod_read_byte(PLAY+0x1C)==!shared_released);
             }
         }
+        /* The normal dispatcher visits P2 after P1's completion boundary. */
+        mmx4_coop_enter_second();mmx4_coop_call(&cpu,0x800311ECu,PLAYER,0);mmx4_coop_leave_second();
         CHECK(!initial_arrival && !psx_mod_read_byte(PLAY+0x1C));
         CHECK(psx_mod_read_byte(PLAYER+5)==2 && p2[5]==2);
         CHECK(!psx_mod_read_byte(PLAYER+0x67) && !p2[0x67]);

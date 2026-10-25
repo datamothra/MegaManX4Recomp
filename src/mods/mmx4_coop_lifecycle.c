@@ -2563,7 +2563,13 @@ static int nonowner_controls(CPUState *cpu,uint32_t address) {
         psx_mod_write_byte(0x801419F4u,cameras[0]);
         psx_mod_write_byte(0x80141A48u,cameras[1]);
         psx_mod_write_byte(0x80141A9Cu,cameras[2]);
-        if(psx_mod_read_byte(PLAYER+4)!=1 || psx_mod_read_byte(PLAYER+5)!=0)
+        /* The partner can land before the campaign owner (notably Zero
+         * beside X). Keep the paired arrival views until both native beams
+         * finish; otherwise +1C still holds P1 while presentation briefly
+         * falls back to the combined HUD in every Split pane. */
+        const uint8_t *primary=mmx4_coop_first_body();
+        if((psx_mod_read_byte(PLAYER+4)!=1 || psx_mod_read_byte(PLAYER+5)!=0) &&
+           (primary[4]!=1 || primary[5]!=0))
             initial_arrival=0;
         return mmx4_coop_finish(cpu,result);
     }
