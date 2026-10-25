@@ -108,12 +108,11 @@ engine's stage-specific fixes do not automatically cover this separate engine.
 P1 retains shared campaign ownership. The intro C4 door and individual pause
 menus have bounded native regression coverage. This is an experimental build.
 
-Local play uses an 8:6 canvas: P1 top left, P2 top right; P3 spans the bottom in
-three-player mode, or uses bottom left with P4 bottom right. The bottom camera
-in three-player mode covers twice the horizontal world area. It is drawn as two
-contiguous native-width tiles from one camera, preserving pixel and glyph shape,
-with one HUD at the left edge. Placement/culling includes that wider visible area.
-All four tiles must succeed before a new frame is published. Each draw restores
+Local play uses an 8:6 canvas: P1 top left, P2 top right; P3 is centered below
+them in three-player mode, or uses bottom left with P4 bottom right. Every pane
+is 4:3, including P3's three-player camera, with black pillars on either side.
+Three-player play captures three native-width views; four-player play captures
+four. Every view must succeed before a new frame is published. Each draw restores
 the same simulation checkpoint; drawing more views never ticks the world again.
 Shared menus/movies and unavailable private draws use fresh canonical images in
 the same canvas. Local unified play is deferred and has no selectable option.

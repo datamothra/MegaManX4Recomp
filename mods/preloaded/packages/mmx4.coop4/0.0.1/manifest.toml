@@ -142,7 +142,7 @@ feature = "coop"
 id = "local_cameras"
 label = "Local cameras"
 display_context = "offline"
-description = "Four players use a 2x2 grid. With Player 4 set to None, Player 3 gets one wide camera across the bottom."
+description = "Four players use a 2x2 grid. With Player 4 set to None, Player 3 gets a 4:3 camera centered below Players 1 and 2, with black space on each side."
 type = "choice"
 default = "split"
 [[option.choice]]
