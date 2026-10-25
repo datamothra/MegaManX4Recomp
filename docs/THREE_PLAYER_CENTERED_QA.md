@@ -24,7 +24,35 @@ Validation on 2026-10-24:
 - Production compiler flags: both `gpu_gl_renderer.c` and
   `mmx4_coop_plugin.c` passed syntax checking with debug tools disabled.
 
-These checks use the real render-pass transaction code with a mock presenter.
-Live game rendering, pane screenshots, pause/resume, resized-window visuals,
-and four-player gameplay remain pending integration QA. Earlier wide-bottom
-three-player screenshots and reports document the previous layout only.
+Native Windows integration QA also passed with feature source `b672ed4`,
+framework `2f3f384` and the development executable SHA256
+`f6ae5f45f8f81b061d56703ba4f8d8c4d66e4255c804fd61b5b06ff24b17e47c`:
+
+- Original USA retail code booted through normal controller navigation.
+  Three distinct keyboard mappings moved the three living players
+  independently through the runtime's normal SDL input path. P3 led with
+  an independent camera while the other players remained in place.
+- Eight composed PNGs passed pixel checks: each pane contains a live image;
+  P3 has the same 4:3 dimensions as P1/P2, centered with completely black
+  pillars. This passed at 960x720 and after resizing the window to 1280x720.
+- X, Zero and Ultimate Armor X opened their matching private pause screens.
+  Every player's menu cursor moved independently; pause/resume succeeded.
+- Explicit draw-pass refusal produced a fresh shared fallback in the same
+  three-pane geometry. Normal independent views recovered afterward.
+- All three background layers rendered. The published frame had mode 4 and
+  staged mask 7; 1,872 render-pass verification checks completed with zero
+  mismatch, abort, watchdog or VRAM leak.
+- Actual recomp-ui captures showed only **Local cameras: Split screen**
+  offline, only **Online cameras: Individual** in the online context, and
+  the local option again after returning through the dashboard.
+
+![Three equal gameplay panes with centered P3](images/three-player-centered-gameplay.png)
+
+![Matching private pause screens](images/three-player-centered-pause.png)
+
+The movement/controller probe used a declared offline native damage-grace
+fixture to isolate input ownership. It does not qualify death or door
+mechanics. These are bounded Windows development-build presentation checks,
+not timing benchmarks or an exhaustive stage audit. Production archive
+qualification is recorded separately. Earlier wide-bottom three-player
+screenshots and reports document the previous layout only.
