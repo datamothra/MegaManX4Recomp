@@ -40,6 +40,10 @@ on allocation/stage initialization, and includes it in its synchronized
 digest. Each X variant's controller uses that seat's context and each private
 view draws only its own stock display. This works with the centered
 three-player presenter, whose draw callbacks are exactly seats 0, 1 and 2.
+The canonical four-player fallback contains only P1's native HUD, so it also
+admits only P1's stock display. Extra-seat stock cannot attach to P1's meter
+when private rendering is refused. Two-player Unified retains its separate
+two-HUD layout and offsets.
 
 ## Validation
 
