@@ -63,6 +63,14 @@ class ReleaseConfigTest(unittest.TestCase):
         self.assertNotIn("overlay_autocompile_cmd", player["runtime"])
         self.assertNotIn("audit", player)
 
+    def test_release_keeps_audited_runtime_optimizations(self):
+        dev = config(ROOT / "game.toml")
+        player = config(ROOT / "packaging/release/game.toml")
+        for key in ("idle_skip", "idle_skip_store_counters", "idle_skip_store_counter_sites"):
+            with self.subTest(key=key):
+                self.assertEqual(player["runtime"][key], dev["runtime"][key])
+        self.assertEqual(player["timing"], dev["timing"])
+
     def test_recompiler_hook_contract_matches_development(self):
         # Keep the shipped codegen metadata aligned with the trusted hooks
         # used to generate the resident game code. Order and hex case do not
