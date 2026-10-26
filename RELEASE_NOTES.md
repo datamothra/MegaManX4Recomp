@@ -1,3 +1,27 @@
+# Mega Man X4 Recompiled - 1.0.11 Four Player Co-op Preview 1
+
+**`1.0.11-4p-spike.1` - experimental Windows x64 prerelease.**
+
+Rebased onto stable 1.0.11 and merged PR #78. The two-player mod includes
+Zero's standing slash against Double, the early Sigma2 lower-route floor,
+either living player's Sigma corridor entrance and the survivor's final
+Sigma arena release. Four Player Co-op uses separate stage logic; these
+Sigma fixes are qualified in the two-player mod, not its four-player routes.
+
+The existing four-player implementation is retained: independent cameras,
+centered three-player layout, roster choices, personal menus and prior HUD
+and rendering fixes. Four Player Co-op and Free Cutscenes remain separate,
+default-off mods. Local unified 4P stays deferred. Diagnostic recording stays
+off by default, and release packages exclude loading mods and developer tools.
+
+The Frost refight camera cause, Jet slowdown and documented four-player
+Magma activation, Web Spider ownership and heavy-gameplay performance gaps
+remain open. Full-campaign, Internet and cross-platform 4P play are unqualified.
+All netplay players must use this exact preview. Native memory-card saves
+remain supported; four-player save states and rewind remain unavailable.
+
+## Previous 1.0.10 Four Player preview
+
 # Mega Man X4 Recompiled - 1.0.10 Four Player Co-op Preview 1
 
 **`1.0.10-4p-spike.1` - experimental Windows x64 prerelease.**
