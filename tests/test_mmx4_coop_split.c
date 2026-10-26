@@ -40,6 +40,11 @@ int mmx4_coop_lifecycle_assessment_bounds(CPUState *cpu,uint32_t address) {
 }
 static unsigned palette_rebuilds,palette_uploads;
 int mmx4_coop_lifecycle_paired_door(void) {return (int)paired_door;}
+static unsigned door_floor_calls;
+static uint16_t door_floor;
+void mmx4_coop_lifecycle_expand_door_floor(uint16_t maximum_y) {
+    ++door_floor_calls;door_floor=maximum_y;
+}
 static unsigned nova_active;
 static unsigned rider_armor_calls;
 int mmx4_coop_render_rider_armor(CPUState *cpu,uint32_t address) {
@@ -103,6 +108,7 @@ uint8_t *mmx4_coop_second_body(void) {return second;}
 uint8_t *mmx4_coop_first_body(void) {return backup;}
 static unsigned actor_context;
 static unsigned area_calls,checkpoint_calls,shared_area_writes;
+static uint16_t area_floor;
 static unsigned mushroom_calls;
 static unsigned stair_calls;
 static int mushroom_x,mushroom_y;
@@ -425,6 +431,7 @@ static uint32_t invoke(CPUState *cpu,uint32_t address) {
            y>=psx_mod_read_half(parameters+6) && y<=psx_mod_read_half(parameters+4)) {
             psx_mod_write_byte(CAMERA+0x47,2);
             psx_mod_write_half(CAMERA+0x26,512);psx_mod_write_half(CAMERA+0x2C,64);
+            if(area_floor)psx_mod_write_half(CAMERA+0x28,area_floor);
             psx_mod_write_half(MMX4_PLAY+0x30,7);++shared_area_writes;
         }
         return 0;
@@ -2052,7 +2059,12 @@ int main(void) {
     psx_mod_write_half(0x8010AE7Cu,2);psx_mod_write_half(0x8010AE7Eu,7);
     psx_mod_write_word(0x8010AF9Cu,CAMERA+0x26);psx_mod_write_word(0x8010AFA0u,CAMERA+0x2C);
     psx_mod_write_word(0x8010AFA4u,MMX4_PLAY+0x30);
+    psx_mod_write_half(CAMERA+0x28,0);area_floor=128;
+    unsigned floor_calls_before=door_floor_calls;
     cpu.gpr[4]=stage_actor;invoke(&cpu,0x800B56F4u);
+    CHECK(door_floor_calls==floor_calls_before+1 && door_floor==128);
+    CHECK(psx_mod_read_half(CAMERA+0x28)==0); /* Delivered before restoring P1. */
+    area_floor=0;
     CHECK(area_calls==1 && shared_area_writes==1 && !projected);
     CHECK(psx_mod_read_half(CAMERA+0x26)==0 && psx_mod_read_half(CAMERA+0x2C)==160);
     CHECK(mmx4_coop_split_camera_copy(1,view) && view[0x26]==0 && view[0x27]==2 && view[0x2C]==64);
@@ -2395,5 +2407,25 @@ int main(void) {
     mmx4_coop_split_door_camera_bounds(1,doorway_bounds);
     CHECK(psx_mod_read_half(CAMERA+0x24)==4160);
     CHECK(mmx4_coop_split_camera_copy(1,view) && (view[0x24]|(unsigned)view[0x25]<<8)==4160);
+    psx_mod_write_half(CAMERA+0x28,864);
+    mmx4_coop_split_camera(&cpu,0);
+    CHECK(mmx4_coop_split_camera_copy(1,view));
+    CHECK((view[0x28]|(unsigned)view[0x29]<<8)==864);
+    CHECK((view[0x24]|(unsigned)view[0x25]<<8)==4160);
+    /* Ride Chaser acceleration belongs to one saved view, including each
+     * layer. Publishing it must leave the world camera and partner intact. */
+    script_owner=-1;paired_door=0;
+    uint8_t scroll_before[2][0xFC],world_before[0xFC];
+    CHECK(mmx4_coop_split_camera_copy(0,scroll_before[0]));
+    CHECK(mmx4_coop_split_camera_copy(1,scroll_before[1]));
+    for(unsigned i=0;i<sizeof world_before;++i)world_before[i]=psx_mod_read_byte(CAMERA+i);
+    const uint8_t chaser_speeds[3]={8,6,4};
+    mmx4_coop_split_camera_scroll(1,chaser_speeds);
+    CHECK(mmx4_coop_split_camera_copy(0,view));
+    CHECK(!memcmp(view,scroll_before[0],sizeof view));
+    CHECK(mmx4_coop_split_camera_copy(1,view));
+    for(unsigned layer=0;layer<3;++layer)scroll_before[1][layer*0x54+0x47]=chaser_speeds[layer];
+    CHECK(!memcmp(view,scroll_before[1],sizeof view));
+    for(unsigned i=0;i<sizeof world_before;++i)CHECK(psx_mod_read_byte(CAMERA+i)==world_before[i]);
     puts("mmx4_coop_split_test: PASS");return 0;
 }

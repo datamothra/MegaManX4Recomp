@@ -85,6 +85,7 @@ void mmx4_coop_split_dragoon_camera_release(uint32_t actor) {
     ++dragoon_release_calls;dragoon_release_projected=projected;
 }
 static unsigned ai_direct_write,ai_canonical;
+static unsigned ai_expected_campaign;
 static uint8_t saved_campaign;
 static uint32_t ai_target_x[2];
 static uint32_t hit_result[2], allocated_actor;
@@ -544,7 +545,7 @@ uint32_t mmx4_coop_call(CPUState *cpu,uint32_t address,uint32_t a0,uint32_t a1) 
             CHECK(projected==seat && mmx4_coop_combat_actor_context());
             return result;
         }
-        CHECK(psx_mod_read_byte(MMX4_PLAY+0x43)==0);
+        CHECK(psx_mod_read_byte(MMX4_PLAY+0x43)==ai_expected_campaign);
         if(psx_mod_read_byte(a0+1)==22) {
             if(psx_mod_read_byte(a0+4)==2) {
                 psx_mod_write_byte(MMX4_PLAYER+0xBA,0);
@@ -563,7 +564,7 @@ uint32_t mmx4_coop_call(CPUState *cpu,uint32_t address,uint32_t a0,uint32_t a1) 
             CHECK(mmx4_coop_combat_canonical_call(cpu,CONTACT,filter(CONTACT)));
         }
         CHECK(projected==seat && mmx4_coop_combat_actor_context());
-        CHECK(psx_mod_read_byte(MMX4_PLAY+0x43)==0);
+        CHECK(psx_mod_read_byte(MMX4_PLAY+0x43)==ai_expected_campaign);
         return 0x12345678u;
     }
     CHECK(0);
@@ -587,6 +588,7 @@ static void setup(void) {
     memset(second_shots,0,sizeof second_shots);
     projected=split=0;ready=1;alive[0]=alive[1]=1;script_owner=-1;deferred_portal=arriving=0;
     pool_updates=bounds_updates=ai_contact=ai_solid=ai_direct_write=ai_canonical=0;
+    ai_expected_campaign=0;
     memset(actor_updates,0,sizeof actor_updates);
     hit_result[0]=hit_result[1]=0;boss_immunity[0]=boss_immunity[1]=0;
     allocated_actor=ACTOR;
@@ -1105,6 +1107,37 @@ static void slash_intro_leader(void) {
         CHECK(actor_updates[leader^1]==1 && !actor_updates[leader]);
     }
 }
+static void intro_entry_leader(void) {
+    const uint32_t actor=0x8013BED0u;
+    for(unsigned leader=0;leader<2;++leader)
+    for(unsigned campaign=0;campaign<2;++campaign)
+    for(unsigned condition=0;condition<8;++condition) {
+        setup_split_actors(0);
+        ai_expected_campaign=campaign;
+        psx_mod_write_byte(actor+0x9C,0);
+        psx_mod_write_byte(MMX4_PLAY+12,condition==3?1:0);
+        psx_mod_write_byte(MMX4_PLAY+13,condition==4?0:1);
+        psx_mod_write_byte(actor+1,condition==5?7:8);
+        psx_mod_write_byte(actor+4,1);psx_mod_write_byte(actor+5,9);
+        psx_mod_write_byte(actor+6,condition==1?1:0);
+        if(condition==2)psx_mod_write_byte(actor+5,2);
+        psx_mod_write_byte(MMX4_PLAYER+2,(uint8_t)campaign);
+        psx_mod_write_byte(MMX4_PLAY+0x43,(uint8_t)campaign);
+        second[2]=(uint8_t)(campaign^1u);
+        unsigned first=leader?4282:4536,other=leader?4536:4282;
+        psx_mod_write_word(MMX4_PLAYER+8,first<<16);
+        second[10]=(uint8_t)other;second[11]=(uint8_t)(other>>8);
+        psx_mod_write_word(actor+8,3936u<<16);
+        if(condition==6)script_owner=(int)(leader^1u);
+        if(condition==7)alive[leader]=0;
+        invoke(0x80021234u);
+        unsigned target=condition?leader^1u:leader;
+        CHECK(actor_updates[target]==1 && !actor_updates[target^1u]);
+        CHECK(ai_target_x[target]==((condition?4282u:4536u)<<16));
+        CHECK(psx_mod_read_byte(MMX4_PLAY+0x43)==campaign);
+        CHECK(!projected && mmx4_coop_combat_snapshot_ready());
+    }
+}
 static void vehicle_secondary_ownership(void) {
     for(unsigned seat=0;seat<2;++seat)for(unsigned type=56;type<=57;++type) {
         setup();const uint32_t actor=0x8013F328u;
@@ -1457,6 +1490,7 @@ int main(void) {
     double_counterpart_damage();
     iris_counterpart_damage();
     slash_intro_leader();
+    intro_entry_leader();
     dragoon_camera_release();
     owl_grab_release();
     vehicle_secondary_ownership();

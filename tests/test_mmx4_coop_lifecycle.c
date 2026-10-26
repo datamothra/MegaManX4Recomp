@@ -80,6 +80,7 @@ int psx_mod_register_instruction_plugin(const char *id,uint32_t address,uint32_t
     (void)id;
     if(address==0x80020018u)stage_completed_predicate=callback;
     assert((address==0x800DA44Cu && expected==0x284218D0u) ||
+           (address==0x80027CE0u && expected==0xA483000Eu) ||
            (address==0x800B9F74u && expected==0x2442FD5Fu) ||
            (address==0x800BA39Cu && expected==0x28420C60u) ||
            (address==0x800C0574u && expected==0x00041100u) ||
@@ -3539,6 +3540,44 @@ int main(void) {
         CHECK(scene_camera_commits==count+(excluded==0));
         if(!excluded)CHECK(scene_camera_owner==owner);
     }
+    for(unsigned excluded=0;excluded<8;++excluded) {
+        reset();script_active=1;script_serial=7;
+        both_door.phase=2;both_door.serial=script_serial;
+        both_door.stage=psx_mod_read_byte(PLAY+12);
+        both_door.section=psx_mod_read_byte(PLAY+13);
+        cpu.gpr[4]=0x801419B0u;cpu.gpr[2]=2;
+        psx_mod_write_half(0x801419D8u,128);
+        if(excluded==1)script_active=0;
+        if(excluded==2)both_door.phase=4;
+        if(excluded==3)++both_door.serial;
+        if(excluded==4)++both_door.stage;
+        if(excluded==5)local_view=1;
+        if(excluded==6)cpu.gpr[4]+=0x54;
+        if(excluded==7)psx_mod_write_half(0x801419D8u,0);
+        both_door_fall_limit(&cpu,0x80027CE0u);
+        CHECK(cpu.gpr[2]==(excluded?2u:128u));
+        CHECK(psx_mod_read_half(0x801419D0u)==0); /* No camera-limit mutation. */
+        local_view=0;
+    }
+    /* A thin native camera area can open a lower floor before another
+     * contact refreshes the physical door's enclosure. Retain that release
+     * in its serialized bounds, and never contract it or alter other axes. */
+    for(unsigned excluded=0;excluded<5;++excluded) {
+        CHECK(!open_both_door(&cpu,actor));
+        both_door.bounds[2]=16;
+        uint16_t original_bounds[4];memcpy(original_bounds,both_door.bounds,sizeof original_bounds);
+        if(excluded==1)script_active=0;
+        if(excluded==2)both_door.phase=4;
+        if(excluded==3)++both_door.serial;
+        if(excluded==4)++both_door.section;
+        mmx4_coop_lifecycle_expand_door_floor(128);
+        CHECK(both_door.bounds[2]==(excluded?16:128));
+        for(unsigned axis=0;axis<4;++axis)if(axis!=2)
+            CHECK(both_door.bounds[axis]==original_bounds[axis]);
+        mmx4_coop_lifecycle_expand_door_floor(0);
+        CHECK(both_door.bounds[2]==(excluded?16:128));
+    }
+    reset();
     CHECK(!colonel_palette_refreshes(&cpu));
     CHECK(!survivor_palette_animation(&cpu));
     CHECK(!marine_chaser_dismount());

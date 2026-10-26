@@ -260,6 +260,12 @@ static void initialize_cameras(void) {
     copy_camera(state+16u+CAMERA_BYTES,CAMERA);
     psx_mod_write_word(state,1);
 }
+void mmx4_coop_split_camera_scroll(unsigned seat,const uint8_t speed[3]) {
+    if(!available() || seat>1 || psx_mod_local_view_scope())return;
+    initialize_cameras();
+    for(unsigned layer=0;layer<3;++layer)
+        psx_mod_write_byte(state+16u+seat*CAMERA_BYTES+layer*0x54u+0x47u,speed[layer]);
+}
 static void cannon_laser_origin(CPUState *cpu,uint32_t address) {
     unsigned type=address==0x8009D104u?20u:36u;
     unsigned value_register=address==0x800A3C00u?3u:2u;
@@ -1051,6 +1057,19 @@ void mmx4_coop_split_camera(CPUState *cpu,unsigned owner) {
         return;
     }
     uint32_t shadow=state+16u+other*CAMERA_BYTES;
+    /* Marine's deeper boss-room floor is released after the door opens.
+     * Its one shared controller can update only the canonical destination
+     * while a paired crossing is active. Publish an expanding floor to the
+     * other admitted view too; keep horizontal limits and native easing. */
+    if(paired) {
+        int16_t room_bottom=(int16_t)(canonical[0x28]|(uint16_t)canonical[0x29]<<8);
+        int16_t other_bottom=(int16_t)psx_mod_read_half(shadow+0x28);
+        if(other_bottom>room_bottom)room_bottom=other_bottom;
+        canonical[0x28]=(uint8_t)room_bottom;
+        canonical[0x29]=(uint8_t)((uint16_t)room_bottom>>8);
+        psx_mod_write_half(state+16u+owner*CAMERA_BYTES+0x28,(uint16_t)room_bottom);
+        psx_mod_write_half(shadow+0x28,(uint16_t)room_bottom);
+    }
     /* The opening door publishes its enclosure once. Recopying these limits
      * each frame also copies a trailing hero's later return-area bounds,
      * which can clamp the partner back through the open doorway. */
@@ -1127,6 +1146,10 @@ static int spatial_stage_actor(CPUState *cpu,uint32_t address) {
     uint8_t campaign=psx_mod_read_byte(MMX4_PLAY+0x43);
     if(target) {mmx4_coop_enter_second();psx_mod_write_byte(MMX4_PLAY+0x43,campaign);}
     uint32_t result=mmx4_coop_call(cpu,address,actor,cpu->gpr[5]);
+    /* A thin camera-area strip can open the lower room while a hero still
+     * overlaps the doorway. Retain that native expansion in the admission,
+     * or its next contact refresh reinstalls the old upper-floor limit. */
+    if(!kind)mmx4_coop_lifecycle_expand_door_floor(psx_mod_read_half(CAMERA+0x28));
     if(target) {
         psx_mod_write_byte(MMX4_PLAY+0x43,psx_mod_read_byte(MMX4_PLAYER+2));
         mmx4_coop_leave_second();
