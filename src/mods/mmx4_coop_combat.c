@@ -803,6 +803,16 @@ static void update_actor(CPUState *cpu,uint32_t address) {
        psx_mod_read_byte(actor+1)==54 && psx_mod_read_byte(actor+4)==1 &&
        psx_mod_read_byte(actor+5)==9 && !psx_mod_read_byte(actor+6))
         target=!actors[0].active || (actors[1].active && actors[1].world_x>actors[0].world_x);
+    /* Eregion starts its WARNING/action15 in native phase1/9/0
+     * (494E0). Its background position is behind the entering hero, so
+     * nearest-to-boss can choose the trailing hero instead. Fight phases
+     * retain nearest targeting; the admitted scene latches its owner. */
+    unsigned intro_admission=actor_pool==0x80021234u &&
+        !psx_mod_read_byte(MMX4_PLAY+12) && psx_mod_read_byte(MMX4_PLAY+13)==1 &&
+        psx_mod_read_byte(actor+1)==8 && psx_mod_read_byte(actor+4)==1 &&
+        psx_mod_read_byte(actor+5)==9 && !psx_mod_read_byte(actor+6);
+    if(owner<0 && intro_admission)
+        target=!actors[0].active || (actors[1].active && actors[1].world_x>actors[0].world_x);
     unsigned vehicle_owner=actor_pool==0x8002144Cu?mmx4_coop_vehicle_effect_owner(actor):0;
     if(vehicle_owner)target=vehicle_owner-1;
     int web=actor_pool==0x8002144Cu && spider_web(actor);
@@ -835,7 +845,7 @@ static void update_actor(CPUState *cpu,uint32_t address) {
         psx_mod_read_byte(actor+4)==1 && psx_mod_read_byte(actor+5)==2 &&
         !psx_mod_read_byte(actor+6);
     int own_scene_camera=target && actor_pool==0x80021234u &&
-        (dragoon_admission || (psx_mod_read_byte(MMX4_PLAY+12)==3 &&
+        (intro_admission || dragoon_admission || (psx_mod_read_byte(MMX4_PLAY+12)==3 &&
         !psx_mod_read_byte(MMX4_PLAY+13) && psx_mod_read_byte(actor+1)==33 &&
         !psx_mod_read_byte(actor+4))) &&
         mmx4_coop_split_scene_camera_begin(target,scene_camera);

@@ -184,3 +184,20 @@ inferred from this arena-script probe.
 ## October10 follow-up
 
 The owner approved a new18-item scope in [COOP_PLAYTEST_FEEDBACK_20261010.md](COOP_PLAYTEST_FEEDBACK_20261010.md). Items8,9,11 and20 above are reopened after the new reports; their earlier tests document bounded evidence and do not cover every new route. The new list distinguishes visual evidence from text-only reports and keeps the original check numbers.
+
+## Opening boss admission, October 25
+
+`beads-eio.9.251` tracks the renewed 1.0.8 report with either player leading.
+Strict replays of the original release verify 10,457 and 8,977 recorded input
+intervals and reproduce the stall. When both heroes approach Eregion, its
+background position makes the trailing hero nearest. Selecting that hero for
+the native WARNING/action15 commits the introduction to the wrong camera.
+
+At Eregion's original type8 phase1/9/0 admission, use the leading living hero
+and that hero's saved camera. Keep an already committed scene owner and retain
+nearest-player targeting during combat. `intro_near_entry` now checks both
+leaders in both campaigns: original boss initialization to48HP, survival,
+passenger return and actual movement by each seat. All four cases pass with
+minimum32HP per hero. The previous distant-partner regression also passes;
+Windows title checks pass39/39. These are bounded admission checks, not a full
+opening-stage or four-player qualification.
