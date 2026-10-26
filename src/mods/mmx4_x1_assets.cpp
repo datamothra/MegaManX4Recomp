@@ -143,8 +143,24 @@ unsigned pose(uint32_t actor,unsigned character) {
     if(psx_mod_read_byte(actor+4)==2)return sequence(character,"hurt",animation);
     if(action<2 || action==20)return sequence(character,"arrive",animation);
     if(action==3 || action==4)return sequence(character,firing?"run_fire":"run",animation);
-    if(action==6 || action==7 || action==8 || action==10 || action==13)
-        return sequence(character,firing?"jump_fire":"jump",animation);
+    if(action==6 || action==7 || action==8) {
+        /* X4 restarts its animation phase at each ascent/descent/landing
+         * controller. A whole-sheet modulo restarts takeoff art in midair
+         * and again on the floor. Keep those native controller phases in
+         * their corresponding portions of the supplied animation. */
+        const char *name=firing?"jump_fire":"jump";
+        if(action==6)return sequence(character,name,animation<4?animation:3);
+        if(action==7) {
+            unsigned phase=animation<4?animation:3;
+            return sequence(character,name,4u+(character?phase*2u:phase));
+        }
+        /* Zero's sheet has no labelled landing cycle; use the appropriate
+         * grounded pose rather than drawing a takeoff pose on the floor. */
+        if(character)return sequence(character,firing?"fire":"idle",0);
+        unsigned last=firing?3u:2u;
+        return sequence(character,name,8u+(animation<last?animation:last));
+    }
+    if(action==10 || action==13)return sequence(character,firing?"jump_fire":"jump",animation);
     if(action==9 || action==11)return sequence(character,"wall",animation);
     if(action==14 || action==15)return sequence(character,"ladder",animation);
     if(action==12)return sequence(character,firing?"dash_fire":"dash",animation);

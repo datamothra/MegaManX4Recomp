@@ -126,7 +126,7 @@ shown. A successful input/health assertion alone is not a visual pass.
 | X walk/jump/fire artwork | Atlas mappings corrected; native visual review in progress. Walk/fire, jump/fire and dash/fire have separate sequences. |
 | X wall/ladder/damage | Wall rectangles and damage pose corrected. Wall and ladder route coverage still needs native visual review. |
 | Zero without firing | The supplied run, jump, dash, wall and ladder movement art has the buster extended. Matching neutral movement art is missing; a native Zero fallback or additional matching artwork is still required. This is not marked fixed. |
-| Zero damage and arrival | Uses available fallback poses; the existing damage rectangles are not a qualified recoil animation. Matching damage and full teleport sequences still need implementation and visual review. |
+| Zero damage, landing and arrival | Uses available fallback poses; the existing damage rectangles are not a qualified recoil animation. Landing uses the grounded idle/fire pose. Matching recoil, landing and full teleport sequences still need implementation and visual review. |
 | Charge cue | The incorrect green projectile-impact overlay is removed. The replacement body pulses while the native charge state is active. This is an approximation; exact SNES charge colors, effects and timing are not implemented. |
 | Projectile art | Native X4 normal/medium/full buster classes use supplied size-specific frames. Complete animated flight, muzzle and impact sequences and exact X1 Zero shot behavior are not implemented. |
 | Movement and damage | Uses X4 movement, collision, charge thresholds and damage. Exact SNES X1 speed, acceleration, wall handling and damage tables are not ported. X4 boss weapons remain available to X by owner choice. |
@@ -138,3 +138,6 @@ shown. A successful input/health assertion alone is not a visual pass.
 
 The standing-fire correction and charge cue must be inspected for both seats,
 both campaign rosters and both facing directions before another owner handoff.
+Frame-matched RAM records the native controller state; the normal front/back
+buffer delay can leave the first firing frame showing the preceding idle pose.
+Inspect the whole transition instead of approving only the first RAM match.
