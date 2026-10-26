@@ -1,6 +1,6 @@
 MegaManX4Recomp - Mega Man X4, recompiled
 ==========================================
-1.0.9-4p-spike.1 - Four Player Co-op Preview (Windows x64)
+1.0.10-4p-spike.1 - Four Player Co-op Preview (Windows x64)
 
 WHAT YOU NEED
   Your own original, unmodified Mega Man X4 (USA, SLUS-00561) disc image.
@@ -55,9 +55,9 @@ TWO-PLAYER CO-OP (SEPARATE MOD)
   In Mods, enable X + Zero Co-op for local play. OpenGL is required, and
   enabling co-op takes effect on a fresh boot. The X + Zero Co-op netplay
   profile enables it for both peers; use the same release on both computers.
-  Unified is the default camera mode. The host may choose Split (Experimental)
+  Unified is the default camera mode. The host may choose Split
   for independent online views. Local co-op display also offers Side by side 8:3
-  (Experimental), with two 4:3 cameras in one window. Requires a fresh boot.
+  with two 4:3 cameras in one window. Requires a fresh boot.
 
   Select Netplay in the launcher to host or join a two-player room using the
   X + Zero Co-op profile. For local play, Controls offers Player 1 and Player 2

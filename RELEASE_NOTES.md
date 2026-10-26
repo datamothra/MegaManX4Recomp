@@ -1,3 +1,21 @@
+# Mega Man X4 Recompiled - 1.0.10 Four Player Co-op Preview 1
+
+**`1.0.10-4p-spike.1` - experimental Windows x64 prerelease.**
+
+Rebased onto 1.0.10 stable, including merged PR #77. The two-player mode includes the
+opening boss admission, Jet Stingray dash/paired-door and Magma Dragoon
+Ride Armor camera corrections. Four Player Co-op remains a separate,
+mutually exclusive mod on this feature branch; its stage-specific boss and
+vehicle paths are not established by those two-player regression checks.
+
+The existing four-player implementation is retained: independent cameras,
+centered three-player layout, roster choices and personal pause menus.
+Diagnostics and experimental cutscene movement remain optional and off by
+default. Jet boss performance and the documented four-player stage gaps
+remain open. Every netplay player must use the same build.
+
+## Previous 1.0.9 Four Player preview
+
 # Mega Man X4 Recompiled - Four Player Co-op Preview
 
 **`1.0.9-4p-spike.1` - experimental Windows x64 prerelease.**

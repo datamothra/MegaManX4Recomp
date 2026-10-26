@@ -11,15 +11,15 @@ from acediez/Hondoori (English) and El Retro Dan (Spanish), with
 
 **X and Zero. Together.**
 
-**Four Player Co-op Preview - `1.0.9-4p-spike.1` (Windows x64).**
+**Four Player Co-op Preview - `1.0.10-4p-spike.1` (Windows x64).**
 This feature branch adds experimental three/four-player co-op with independent
 local split cameras and individual online views. Enable **Mods -> Four Player
 Co-op**, then assign each seat in **Controls**. The default roster is X, Zero,
 Ultimate Armor X and Black Zero; Player 4 can be None for three-player play.
 
-**[Download this prerelease](https://github.com/mstan/MegaManX4Recomp/releases/tag/v1.0.9-4p-spike.1)** | [Setup and limitations](docs/EXPERIMENTAL_FOUR_PLAYER.md) | [Release notes](RELEASE_NOTES.md)
+**[Download this prerelease](https://github.com/mstan/MegaManX4Recomp/releases/tag/v1.0.10-4p-spike.1)** | [Setup and limitations](docs/EXPERIMENTAL_FOUR_PLAYER.md) | [Release notes](RELEASE_NOTES.md)
 
-The preview is separate from the [1.0.9 Stable Public Beta](https://github.com/mstan/MegaManX4Recomp/releases/tag/v1.0.9).
+The preview is separate from the [1.0.10 Stable Public Beta](https://github.com/mstan/MegaManX4Recomp/releases/tag/v1.0.10).
 Local unified four-player cameras are deferred. Four-player save states and
 rewind are unavailable; native memory-card saves remain supported. Full-campaign,
 Internet and cross-platform four-player play remain unqualified. See the preview
