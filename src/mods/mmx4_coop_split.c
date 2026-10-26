@@ -1022,6 +1022,19 @@ void mmx4_coop_split_door_camera_bounds(unsigned seats,const uint16_t bounds[4])
             }
         }
 }
+void mmx4_coop_split_commit_door_minimum(uint16_t minimum) {
+    if(!state || !mmx4_coop_split_views() || !mmx4_coop_ready() ||
+       psx_mod_read_byte(MMX4_PLAY)!=6 || psx_mod_local_view_scope())return;
+    initialize_cameras();
+    /* C1D90 commits the sealed entrance after both bodies clear it. Its
+     * native write reaches only the installed owner's camera; the other
+     * view otherwise retains the old room's minimum (Sigma2:256 vs1744).
+     * Publish only the destination minimum. Each view keeps its own origin,
+     * current-limit easing, other bounds and scenery. This may run inside
+     * the P2 door projection, whose native camera is already installed. */
+    for(unsigned seat=0;seat<2;++seat)
+        psx_mod_write_half(state+16u+seat*CAMERA_BYTES+0x26u,minimum);
+}
 void mmx4_coop_split_commit_scene_camera(unsigned owner) {
     if(!state || owner>1 || !mmx4_coop_split_views() || !mmx4_coop_ready() ||
        psx_mod_local_view_scope())return;

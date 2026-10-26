@@ -1,4 +1,15 @@
-# Mega Man X4 Recompiled - 1.0.12 Stable Public Beta
+# Mega Man X4 Recompiled - 1.0.13 Stable Public Beta
+
+- Fixed Player 2's camera failing to pan and lock in the corridor between Sigma stage 2's boss doors before Double or Iris. Completed paired-door crossings now commit the room limit to both independent cameras.
+
+Diagnostic recording remains optional and **off by default**. All netplay
+players must update. Native memory-card saves carry forward. Public packages
+require the original, unmodified USA disc and omit CD Speed, Fast Loading
+and developer cheats. Four Player Co-op remains a separate prerelease.
+
+See [native regression evidence and limits](docs/COOP_PLAYTEST_REGRESSIONS.md).
+
+## Previous v1.0.12 Stable Public Beta
 
 - Keep each Ride Chaser's scrolling and exit independent in Split. Reaching the end no longer copies the leading rider's camera or forces the trailing rider to dismount early.
 - Return a still-mounted partner on foot when the leading rider enters Jet Stingray's boss room, avoiding a fall below the destination floor.

@@ -2490,6 +2490,46 @@ int main(void) {
     CHECK(mmx4_coop_split_camera_copy(1,view));
     CHECK((view[0x28]|(unsigned)view[0x29]<<8)==864);
     CHECK((view[0x24]|(unsigned)view[0x25]<<8)==4160);
+    /* A completed door publishes its destination minimum even inside a
+     * P2-owned projection. All other camera bytes, canonical RAM and the
+     * player bodies must remain unchanged; native easing performs the pan. */
+    for(unsigned projection=0;projection<2;++projection) {
+        uint8_t before_views[2][0xFC],before_world[0xFC];
+        uint8_t before_first[0xE4],before_second[0xE4];
+        for(unsigned seat=0;seat<2;++seat)
+            CHECK(mmx4_coop_split_camera_copy(seat,before_views[seat]));
+        for(unsigned i=0;i<sizeof before_world;++i)before_world[i]=psx_mod_read_byte(CAMERA+i);
+        for(unsigned i=0;i<sizeof before_first;++i)before_first[i]=psx_mod_read_byte(MMX4_PLAYER+i);
+        memcpy(before_second,second,sizeof before_second);
+        projected=projection;
+        uint16_t minimum=(uint16_t)(4144+projection*16u);
+        mmx4_coop_split_commit_door_minimum(minimum);
+        projected=0;
+        for(unsigned seat=0;seat<2;++seat) {
+            before_views[seat][0x26]=(uint8_t)minimum;
+            before_views[seat][0x27]=(uint8_t)(minimum>>8);
+            CHECK(mmx4_coop_split_camera_copy(seat,view));
+            CHECK(!memcmp(view,before_views[seat],sizeof view));
+        }
+        for(unsigned i=0;i<sizeof before_world;++i)CHECK(before_world[i]==psx_mod_read_byte(CAMERA+i));
+        for(unsigned i=0;i<sizeof before_first;++i)CHECK(before_first[i]==psx_mod_read_byte(MMX4_PLAYER+i));
+        CHECK(!memcmp(before_second,second,sizeof before_second));
+    }
+    for(unsigned excluded=0;excluded<4;++excluded) {
+        uint8_t before_views[2][0xFC];
+        for(unsigned seat=0;seat<2;++seat)
+            CHECK(mmx4_coop_split_camera_copy(seat,before_views[seat]));
+        if(excluded==0)split=0;
+        if(excluded==1)ready=0;
+        if(excluded==2)local_scope=1;
+        if(excluded==3)psx_mod_write_byte(MMX4_PLAY,7);
+        mmx4_coop_split_commit_door_minimum(1234);
+        split=ready=1;local_scope=0;psx_mod_write_byte(MMX4_PLAY,6);
+        for(unsigned seat=0;seat<2;++seat) {
+            CHECK(mmx4_coop_split_camera_copy(seat,view));
+            CHECK(!memcmp(view,before_views[seat],sizeof view));
+        }
+    }
     /* Ride Chaser acceleration belongs to one saved view, including each
      * layer. Publishing it must leave the world camera and partner intact. */
     script_owner=-1;paired_door=0;

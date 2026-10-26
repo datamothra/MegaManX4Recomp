@@ -123,6 +123,11 @@ void mmx4_coop_menu_assets(CPUState *cpu,unsigned seat) {
         ++late_menu_assets;
 }
 static unsigned scene_camera_commits,scene_camera_owner;
+static unsigned door_minimum_commits;
+static uint16_t committed_door_minimum;
+void mmx4_coop_split_commit_door_minimum(uint16_t minimum) {
+    ++door_minimum_commits;committed_door_minimum=minimum;
+}
 void mmx4_coop_split_door_camera_bounds(unsigned seats,const uint16_t bounds[4]) {
     (void)seats;(void)bounds;
 }
@@ -3172,6 +3177,7 @@ int main(void) {
     }
     cpu.gpr[6]=cpu.gpr[31]=0;
     uint8_t paired_hp[2]={psx_mod_read_byte(PLAYER+0x5C),p2[0x5C]};
+    unsigned minimum_commits_before=door_minimum_commits;
     mmx4_coop_call(&cpu,0x800C1994u,actor,0);
     CHECK(both_door.phase==2 && !both_door_crossings);
     CHECK(psx_mod_read_word(PLAYER+8)==512u<<16 && body_word(p2,8)==512u<<16);
@@ -3182,14 +3188,18 @@ int main(void) {
     for(unsigned tick=0;tick<3;++tick)mmx4_coop_call(&cpu,0x800C1994u,actor,0);
     CHECK(both_door.phase==2 && psx_mod_read_word(PLAYER+8)==paired_x);
     CHECK(psx_mod_read_half(0x801419D6u)==128 && !both_door_crossings);
+    CHECK(door_minimum_commits==minimum_commits_before);
     for(unsigned tick=0;tick<6;++tick)door_control(&cpu,1,0x8020);
     CHECK(observed_controls==0x8020 && p2[5]==8 && body_word(p2,8)==536u<<16);
     CHECK(p2[0xC4]==255 && psx_mod_read_word(PLAYER+0x68) && body_word(p2,0x68));
     mmx4_coop_call(&cpu,0x800C1994u,actor,0);
     CHECK(both_door.phase==3 && psx_mod_read_byte(actor+5)==3);
     CHECK(psx_mod_read_half(0x801419D6u)==512 && !both_door_crossings);
+    CHECK(door_minimum_commits==minimum_commits_before+1 && committed_door_minimum==512);
+    CHECK(both_door.bounds[1]==512);
     psx_mod_write_half(0x801419BAu,511);mmx4_coop_call(&cpu,0x800C1994u,actor,0);
     CHECK(both_door.phase==3 && !both_door_crossings);
+    CHECK(door_minimum_commits==minimum_commits_before+1);
     psx_mod_write_half(0x801419BAu,609);mmx4_coop_call(&cpu,0x800C1994u,actor,0);
     CHECK(both_door.phase==3 && !both_door_crossings);
     psx_mod_write_half(0x801419BAu,560);mmx4_coop_call(&cpu,0x800C1994u,actor,0);
