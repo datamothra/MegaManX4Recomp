@@ -372,3 +372,37 @@ native reports. Unit coverage includes standing-hit cooldowns, entrance-owner
 latching, excluded rooms/render passes and byte-for-byte camera preservation.
 Four Player uses separate stage logic; these two-player checks do not qualify
 its Sigma routes. Existing performance and pause-flash issues remain open.
+
+### Sigma2 paired-door corridor camera (1.0.13)
+
+`beads-eio.9.268`: the supplied 1.0.11 recording reproduces the missing P2
+camera lock through 6,341 complete native input intervals, with identity,
+read order and state hashes verified. After both heroes clear the outer door,
+native C1D90 commits minimum X1744 only to the installed owner's camera.
+P2's saved view retains minimum256. It continues following P2 inside the
+corridor instead of panning into the authored1744 lock. The same failure is
+independently reproduced on the 1.0.12 development baseline with both heroes
+at32HP and unchanged lives.
+
+Publish that completed door's destination minimum once to both saved views,
+including inside a P2-owned native projection. Retain their origins, current
+limits, easing, vertical bounds and scenery. Keep the committed enclosure in
+the door's admission record so later contact cannot restore its old minimum.
+This runs only after both collision boxes physically clear the entrance;
+it does not change the earlier Both-player waiting rule or player positions.
+
+The `sigma_story_corridor` native scenario exercises either leading seat in
+each campaign. Both views reach1744 with target interval1744..1744 before
+continuing through the actual inner door, original Double/Iris introduction
+and restored fight controls. Health and lives are retained. Earlier stage
+traversal is bypassed with stage/position fixtures. Setup uses the recorded
+platform foot heights331/330 and camera origin1440 while paused; it never
+writes the tested1744 destination, door state or boss admission flags.
+Earlier probes placed heroes inside terrain and are excluded as invalid
+fixtures. Native composed captures and RAM observations are retained under
+`G:/Temp/Codex/psxrecomp/x4-sigma-door113`.
+
+Unit checks require physical clearance before publishing, one publication per
+door, unchanged player bytes and every other camera byte, P2 projection
+support, and no changes in Unified, private draw or non-gameplay contexts.
+These local two-player checks do not qualify Four Player or cross-OS netplay.

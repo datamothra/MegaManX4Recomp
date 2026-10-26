@@ -67,6 +67,7 @@ void mmx4_coop_split_sigma_drop_release(uint32_t actor);
 int mmx4_coop_split_scene_camera_begin(unsigned owner,uint8_t canonical[0xFC]);
 void mmx4_coop_split_commit_scene_camera(unsigned owner);
 void mmx4_coop_split_door_camera_bounds(unsigned seats,const uint16_t bounds[4]);
+void mmx4_coop_split_commit_door_minimum(uint16_t minimum);
 void mmx4_coop_lifecycle_expand_door_floor(uint16_t maximum_y);
 void mmx4_coop_split_scene_camera_end(unsigned owner,const uint8_t canonical[0xFC],int committed);
 void mmx4_coop_split_actors(Mmx4CoopViewActor actors[2]);

@@ -2169,6 +2169,10 @@ static int both_door_traversal(CPUState *cpu,uint32_t address) {
      * to clear. Keeping C4 outside the control pass also keeps bosses waiting. */
     if(!both_door_cleared())return mmx4_coop_finish(cpu,0);
     psx_mod_write_half(0x801419D6u,both_door.target_min);
+    if(both_door.phase==2) {
+        both_door.bounds[1]=both_door.target_min;
+        mmx4_coop_split_commit_door_minimum(both_door.target_min);
+    }
     both_door.phase=3;
     /* Free movement can put the opener farther inside the new room than
      * retail's auto-walk, especially when P2 leads. An exact minimum-X
