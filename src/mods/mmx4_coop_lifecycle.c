@@ -2236,14 +2236,21 @@ static int both_door_map(CPUState *cpu,uint32_t address) {
     }
     return mmx4_coop_finish(cpu,result);
 }
-static void both_door_fall_limit(CPUState *cpu,uint32_t address) {
+static void authored_floor_limit(CPUState *cpu,uint32_t address) {
     (void)address;
-    if(!mmx4_coop_ready() || psx_mod_local_view_scope() ||
-       !mmx4_coop_lifecycle_paired_door() || cpu->gpr[4]!=0x801419B0u)return;
+    if(!mmx4_coop_ready() || psx_mod_local_view_scope() || cpu->gpr[4]!=0x801419B0u)return;
+    /* Sigma2's lower route opens while an arriving hero can still overlap
+     * the upper camera area. Its easing limit can remain274 despite the
+     * authored destination592. Ordinary Split movement needs the same
+     * destination-floor test as a paired door, without changing the camera. */
+    int sigma_lower=mmx4_coop_split_views() &&
+        psx_mod_read_byte(PLAY+12)==11 && psx_mod_read_byte(PLAY+13)==1 &&
+        psx_mod_read_half(0x801419D4u)==2768 && psx_mod_read_half(0x801419D6u)==992 &&
+        psx_mod_read_half(0x801419D8u)==592 && psx_mod_read_half(0x801419DAu)==272;
+    if(!sigma_lower && !mmx4_coop_lifecycle_paired_door())return;
     /* 27CDC loads the easing current maximum before its lethal bottom test.
-     * Both-door controls can fall toward a deeper authored floor before that
-     * limit catches up. Use the destination for this test only; preserve the
-     * native camera easing and deaths below the actual destination room. */
+     * Use the deeper native target for this operand only. Native easing and
+     * deaths below the actual destination room remain intact. */
     unsigned target=psx_mod_read_half(0x801419D8u);
     if((int16_t)target>(int16_t)cpu->gpr[2])cpu->gpr[2]=target;
 }
@@ -2274,6 +2281,14 @@ static int scene_actor_canonical(CPUState *cpu,uint32_t address) {
              sigma_entrance) && script_active)
         owner=script_owner;
     else if(!mmx4_coop_alive(0) && mmx4_coop_alive(1))owner=1;
+    else if(sigma_entrance && mmx4_coop_alive(1) &&
+            (int16_t)psx_mod_read_half(PLAYER+10)<2321 &&
+            (int16_t)(body_word(mmx4_coop_second_body(),8)>>16)>=2321) {
+        /* D2420 waits for X>=2321 before starting the original scene.
+         * Either living entrant may reach it first. Once admitted, the
+         * scene record above keeps that owner through text and release. */
+        owner=1;
+    }
     else if(train && script_active)owner=script_owner;
     else if(train && mmx4_coop_alive(1) &&
             (int16_t)psx_mod_read_half(PLAYER+10)<
@@ -2522,6 +2537,8 @@ static int fortress_shared_scene(CPUState *cpu) {
 }
 static int script_command(CPUState *cpu,uint32_t address) {
     if(command_guard || !mmx4_coop_ready() || !gameplay_scene())return 0;
+    if(address==0x80036B18u && cpu->gpr[31]==0x800855E0u && !psx_mod_local_view_scope())
+        mmx4_coop_split_sigma_drop_release(cpu->gpr[16]);
     /* Marine Base's Chaser exit gives each rider its own native action17.
      * Carrying the other seat as a shared scene suspends its vehicle before
      * ejection, then restores the mounted rider at the leader's on-foot Y.
@@ -2819,7 +2836,7 @@ PSX_MOD_CONSTRUCTOR(mmx4_register_coop_lifecycle) {
     psx_mod_register_function_filter_plugin(ID,0x80036B18u,script_command);
     psx_mod_register_function_filter_plugin(ID,0x800311ECu,nonowner_controls);
     psx_mod_register_function_filter_plugin(ID,0x8002C614u,hidden_terrain);
-    psx_mod_register_instruction_plugin(ID,0x80027CE0u,0xA483000Eu,both_door_fall_limit);
+    psx_mod_register_instruction_plugin(ID,0x80027CE0u,0xA483000Eu,authored_floor_limit);
     static const uint32_t capsules[]={0x800C62DCu,0x800C6B84u,0x800C6C2Cu,
         0x800C6CE4u,0x800C6EDCu};
     for(unsigned i=0;i<sizeof capsules/sizeof capsules[0];++i)

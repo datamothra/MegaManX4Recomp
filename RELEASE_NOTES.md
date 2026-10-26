@@ -1,4 +1,22 @@
-# Mega Man X4 Recompiled - 1.0.10 Stable Public Beta
+# Mega Man X4 Recompiled - 1.0.11 Stable Public Beta
+
+- Fixed Zero's first standing saber slash failing to damage Double.
+- Fixed an early drop into Sigma stage 2's lower route killing the leading player before the camera reached the lower room. Real pit deaths remain active.
+- Fixed Player 2 being unable to start Sigma's entrance scene while Player 1 was alive and waiting behind.
+- Fixed the final Sigma fight failing to start after a surviving Player 2 defeated the upper forms and dropped into the lower arena.
+
+The Frost Walrus refight camera report remains open: the recording confirms
+P2's death, but has not established that a camera fault caused it. Jet boss
+performance and the earlier one-frame pause-view report also remain open.
+
+Diagnostic recording remains optional and **off by default**. All netplay
+players must update. Native memory-card saves carry forward. Public packages
+require the original, unmodified USA disc and omit CD Speed, Fast Loading
+and developer cheats. Four Player Co-op remains a separate prerelease.
+
+See [native regression evidence and limits](docs/COOP_PLAYTEST_REGRESSIONS.md).
+
+## Previous v1.0.10 Stable Public Beta
 
 - Fixed either player triggering the opening boss introduction on the wrong hero, causing a camera pan and forced walk to the left.
 - Fixed a Ride Chaser dash accelerating the other player in either section of Jet Stingray's stage.

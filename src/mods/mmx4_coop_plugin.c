@@ -831,6 +831,9 @@ static int development_fixture(CPUState *cpu,uint32_t address) {
            (stage==7 && section==1 && checkpoint<4) ||
            (stage==10 && section==0 && checkpoint<3) ||
            (stage==11 && section==0 && checkpoint<2) ||
+           /* Native80028C1C directory800F42B4: three pointers at
+            * 800F4240..4248, records800F3D10/3D34/3D58. */
+           (stage==11 && section==1 && checkpoint<3) ||
            ((stage==5 || stage==6) && section==1 && checkpoint<2) ||
            (stage==12 && section==0 && checkpoint<19) ||
            (stage==12 && section==1 && checkpoint<7)) {

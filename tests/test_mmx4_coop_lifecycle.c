@@ -125,6 +125,7 @@ static unsigned scene_camera_commits,scene_camera_owner;
 void mmx4_coop_split_door_camera_bounds(unsigned seats,const uint16_t bounds[4]) {
     (void)seats;(void)bounds;
 }
+void mmx4_coop_split_sigma_drop_release(uint32_t actor) {(void)actor;}
 void mmx4_coop_split_commit_scene_camera(unsigned owner) {
     ++scene_camera_commits;scene_camera_owner=owner;
 }
@@ -2852,8 +2853,13 @@ int main(void) {
     reset();psx_mod_write_byte(PLAY+12,12);psx_mod_write_byte(actor,1);
     psx_mod_write_byte(actor+4,1);put32(p2+8,2356u<<16);cpu.gpr[4]=actor;
     mmx4_coop_call(&cpu,0x800D2A38u,actor,0);
-    CHECK(!script_active); /* A living P1 retains the original admission. */
+    CHECK(script_active && script_owner==1 && p2[0xC0]==1);
+    /* A later P1 arrival must not steal the already admitted P2 scene. */
     psx_mod_write_word(PLAYER+8,2321u<<16);cpu.gpr[4]=actor;
+    mmx4_coop_call(&cpu,0x800D2A38u,actor,0);CHECK(script_active && script_owner==1);
+    reset();psx_mod_write_byte(PLAY+12,12);psx_mod_write_byte(actor,1);
+    psx_mod_write_byte(actor+4,1);psx_mod_write_word(PLAYER+8,2321u<<16);
+    put32(p2+8,2356u<<16);cpu.gpr[4]=actor;
     mmx4_coop_call(&cpu,0x800D2A38u,actor,0);CHECK(script_active && !script_owner);
     reset();cpu.gpr[4]=actor;
     CHECK(!scene_actor(&cpu,0x800D2A38u)); /* Other stages stay native. */
@@ -3394,17 +3400,17 @@ int main(void) {
     CHECK(p2[0xC0]==1);
     /* P2's bike waits for the same READY actor without allocating/restarting
      * it. Ordinary allocations and the campaign owner's bike remain native. */
-    reset();uint32_t ready=0x80142F98u;
-    psx_mod_write_word(MMX4_VEHICLE+0xA0,ready);
-    psx_mod_write_byte(ready,1);psx_mod_write_byte(ready+1,0x1B);
-    psx_mod_write_byte(ready+5,2);cpu.gpr[31]=0x8003B64Cu;
+    reset();uint32_t ready_actor=0x80142F98u;
+    psx_mod_write_word(MMX4_VEHICLE+0xA0,ready_actor);
+    psx_mod_write_byte(ready_actor,1);psx_mod_write_byte(ready_actor+1,0x1B);
+    psx_mod_write_byte(ready_actor+5,2);cpu.gpr[31]=0x8003B64Cu;
     CHECK(!shared_ride_ready(&cpu,0x8002AD7Cu));
     mmx4_coop_enter_second();
     CHECK(shared_ride_ready(&cpu,0x8002AD7Cu) && cpu.gpr[2]==0);
-    CHECK(psx_mod_read_word(MMX4_VEHICLE+0xA0)==ready);
-    CHECK(psx_mod_read_byte(ready+5)==2);
+    CHECK(psx_mod_read_word(MMX4_VEHICLE+0xA0)==ready_actor);
+    CHECK(psx_mod_read_byte(ready_actor+5)==2);
     cpu.gpr[31]=0x8001FE8Cu;CHECK(!shared_ride_ready(&cpu,0x8002AD7Cu));
-    mmx4_coop_leave_second();CHECK(body_word(p2_vehicle,0xA0)==ready);
+    mmx4_coop_leave_second();CHECK(body_word(p2_vehicle,0xA0)==ready_actor);
     reset();psx_mod_write_byte(PLAYER+2,0);psx_mod_write_byte(PLAYER+5,0x22);
     CHECK(mmx4_coop_lifecycle_nova_active());
     mmx4_coop_enter_second();CHECK(mmx4_coop_lifecycle_nova_active());mmx4_coop_leave_second();
@@ -3554,9 +3560,33 @@ int main(void) {
         if(excluded==5)local_view=1;
         if(excluded==6)cpu.gpr[4]+=0x54;
         if(excluded==7)psx_mod_write_half(0x801419D8u,0);
-        both_door_fall_limit(&cpu,0x80027CE0u);
+        authored_floor_limit(&cpu,0x80027CE0u);
         CHECK(cpu.gpr[2]==(excluded?2u:128u));
         CHECK(psx_mod_read_half(0x801419D0u)==0); /* No camera-limit mutation. */
+        local_view=0;
+    }
+    /* Only Sigma2's inspected lower-room destination may replace the
+     * lethal operand outside a paired door. Preserve every camera byte. */
+    for(unsigned seat=0;seat<2;++seat)for(unsigned excluded=0;excluded<11;++excluded) {
+        reset();split_views=1;
+        psx_mod_write_byte(PLAY+12,11);psx_mod_write_byte(PLAY+13,1);
+        psx_mod_write_half(0x801419D0u,274);
+        psx_mod_write_half(0x801419D4u,2768);psx_mod_write_half(0x801419D6u,992);
+        psx_mod_write_half(0x801419D8u,592);psx_mod_write_half(0x801419DAu,272);
+        cpu.gpr[4]=0x801419B0u;cpu.gpr[2]=274;
+        if(excluded==1)split_views=0;
+        if(excluded==2)ready=0;
+        if(excluded==3)local_view=1;
+        if(excluded==4)cpu.gpr[4]+=0x54;
+        if(excluded==5)psx_mod_write_byte(PLAY+12,12);
+        if(excluded==6)psx_mod_write_byte(PLAY+13,0);
+        if(excluded>=7)psx_mod_write_half(0x801419D4u+(excluded-7u)*2u,0);
+        uint8_t camera[0xFC];for(unsigned i=0;i<sizeof camera;++i)camera[i]=psx_mod_read_byte(0x801419B0u+i);
+        if(seat)mmx4_coop_enter_second();
+        authored_floor_limit(&cpu,0x80027CE0u);
+        if(seat)mmx4_coop_leave_second();
+        CHECK(cpu.gpr[2]==(excluded?274u:592u));
+        for(unsigned i=0;i<sizeof camera;++i)CHECK(camera[i]==psx_mod_read_byte(0x801419B0u+i));
         local_view=0;
     }
     /* A thin native camera area can open a lower floor before another
