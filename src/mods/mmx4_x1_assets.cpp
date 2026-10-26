@@ -136,28 +136,28 @@ unsigned pose(uint32_t actor,unsigned character) {
         unsigned type=psx_mod_read_byte(actor+1);
         return sequence(0,character?"zero_shot":"shot",type==18?2:type==9?1:0);
     }
-    if(glowActor(actor))return sequence(0,"glow",animation);
     if(trailActor(actor))return sequence(character,"dash",animation);
     if(actor==0x80175D58u)return sequence(character,"idle",animation);
     unsigned action=psx_mod_read_byte(actor+5);
+    bool firing=psx_mod_read_byte(actor+0x91) || psx_mod_read_byte(actor+0x92);
     if(psx_mod_read_byte(actor+4)==2)return sequence(character,"hurt",animation);
     if(action<2 || action==20)return sequence(character,"arrive",animation);
-    if(action==3 || action==4 || action==5)return sequence(character,"run",animation);
+    if(action==3 || action==4)return sequence(character,firing?"run_fire":"run",animation);
     if(action==6 || action==7 || action==8 || action==10 || action==13)
-        return sequence(character,"jump",animation);
+        return sequence(character,firing?"jump_fire":"jump",animation);
     if(action==9 || action==11)return sequence(character,"wall",animation);
     if(action==14 || action==15)return sequence(character,"ladder",animation);
-    if(action==12)return sequence(character,"dash",animation);
-    if(psx_mod_read_byte(actor+0x91) || psx_mod_read_byte(actor+0x92))return sequence(character,"fire",animation);
+    if(action==12)return sequence(character,firing?"dash_fire":"dash",animation);
+    if(firing)return sequence(character,"fire",animation);
     return sequence(character,"idle",animation);
 }
 void triangle(uint32_t at,uint32_t next,int x,int y,unsigned w,unsigned h,
-              unsigned a,unsigned b,unsigned c,bool mirror,bool flipY,uint16_t bank,bool ghost) {
+              unsigned a,unsigned b,unsigned c,bool mirror,bool flipY,uint16_t bank,bool ghost,uint32_t tint) {
     const unsigned vertex[3]={a,b,c};
     psx_mod_write_word(at,0x09000000u|(next&0xFFFFFFu));
     for(unsigned i=0;i<3;++i) {
         unsigned v=vertex[i];
-        uint32_t rgb=ghost?0x00606060u:0x00808080u;
+        uint32_t rgb=ghost?0x00606060u:tint;
         uint32_t color=i==0?(ghost?0x36000000u:0x34000000u)|rgb:rgb|
             (uint32_t(i==1?bank&255u:bank>>8)<<24);
         unsigned u=(v&1u)?w:0;if(mirror)u=w-u;
@@ -230,6 +230,11 @@ extern "C" int mmx4_x1_render(CPUState *cpu,uint32_t actor,unsigned character) {
     if(character>1 || !mmx4_x1_enabled(character) || !arena ||
        (!bodyActor(actor) && !shotActor(actor) && !glowActor(actor)))return 0;
     if(!psx_mod_texture_banks_supported())return 0;
+    /* Those actors are the native charge indicators, not projectiles. The
+     * supplied sheet has no charge aura: its green bursts are shot impacts.
+     * Indicate charging with a body pulse below instead of pasting an impact
+     * animation onto either hero. Exact SNES palette timing remains separate. */
+    if(glowActor(actor))return 1;
     if(!psx_mod_read_byte(actor) || !psx_mod_read_byte(actor+3))return 1;
     drawing=1;unsigned index=pose(actor,character);const auto &frame=X1Frames[index];
     bool ghost=trailActor(actor);unsigned bankIndex=index+(ghost?FrameCount:0);
@@ -259,14 +264,18 @@ extern "C" int mmx4_x1_render(CPUState *cpu,uint32_t actor,unsigned character) {
     int margin=psx_mod_widescreen_x_margin();
     if(x+int(frame.w)<-margin-128 || x>320+margin+128 || y+int(frame.h)<-128 || y>368) {drawing=0;return 1;}
     bool mirror=(psx_mod_read_byte(actor+0x15)&0x40u)==0;
-    triangle(at,at+40,x,y,frame.w,frame.h,0,1,2,mirror,flipY,bank,ghost);
-    triangle(at+40,next,x,y,frame.w,frame.h,2,1,3,mirror,flipY,bank,ghost);
+    uint32_t tint=0x00808080u;
+    unsigned charge=psx_mod_read_byte(Player+0x94);
+    if(body && !ghost && charge && (tick&4u)) {
+        tint=charge>=18?0x00A0F0F0u:0x00F0D0A0u;
+        psx_mod_counter_add("mmx4.x1.charge-body-pulses",1);
+    }
+    triangle(at,at+40,x,y,frame.w,frame.h,0,1,2,mirror,flipY,bank,ghost,tint);
+    triangle(at+40,next,x,y,frame.w,frame.h,2,1,3,mirror,flipY,bank,ghost,tint);
     psx_mod_write_word(previous,(psx_mod_read_word(previous)&0xFF000000u)|(at&0xFFFFFFu));
     psx_mod_write_word(tail,at+40);
     psx_mod_tag_world_primitive(at,layer<3);psx_mod_tag_world_primitive(at+40,layer<3);
     drawing=0;psx_mod_counter_add("mmx4.x1.replacement-draws",1);
-    if(actor==Player && character==1)
-        for(unsigned i=0;i<2;++i)mmx4_x1_render(cpu,0x8013E470u+i*0x50u,character);
     return 1;
 }
 

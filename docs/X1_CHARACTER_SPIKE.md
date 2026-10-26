@@ -1,8 +1,14 @@
 # X1 character replacement spike
 
 Branch: `spike/x1-character-replacements`, based on stable `master` at
-`06bb87f30f11d097469daa1e5de5db0687341971` (1.0.11). This branch does not
+`54088ed37fa2879aa51d36c3934bba676e0380a6` (1.0.12). This branch does not
 include the game's four-player co-op implementation.
+
+Visual correction is in progress. The earlier control, damage and snapshot
+checks did not qualify the atlas poses: they missed swapped walk/jump frames,
+incorrect firing poses, neighboring sprite fragments and a projectile-impact
+image drawn as a charge indicator. Do not treat the earlier handoff as a
+complete animation or X1 parity qualification.
 
 Enable **X1 X** and/or **X1 Zero** under Characters, then boot the game. They
 are independent opt-in packages, both off by default. OpenGL is required for
@@ -107,3 +113,28 @@ the same private runner arguments. Private runs keep neutral controller
 overrides between pulses, so physical owner devices cannot affect QA.
 
 Tracking: central Beads `beads-eio.9.263` (X), `beads-eio.9.264` (Zero).
+
+## Remaining parity and qualification gaps
+
+Current visual follow-up: `beads-eio.9.265`. Original PNG files are unchanged.
+Full presented-frame histories are captured with controller routes bounded by
+native frame counts; matching RAM snapshots identify the action actually
+shown. A successful input/health assertion alone is not a visual pass.
+
+| Area | Current implementation and remaining work |
+| --- | --- |
+| X walk/jump/fire artwork | Atlas mappings corrected; native visual review in progress. Walk/fire, jump/fire and dash/fire have separate sequences. |
+| X wall/ladder/damage | Wall rectangles and damage pose corrected. Wall and ladder route coverage still needs native visual review. |
+| Zero without firing | The supplied run, jump, dash, wall and ladder movement art has the buster extended. Matching neutral movement art is missing; a native Zero fallback or additional matching artwork is still required. This is not marked fixed. |
+| Zero damage and arrival | Uses available fallback poses; the existing damage rectangles are not a qualified recoil animation. Matching damage and full teleport sequences still need implementation and visual review. |
+| Charge cue | The incorrect green projectile-impact overlay is removed. The replacement body pulses while the native charge state is active. This is an approximation; exact SNES charge colors, effects and timing are not implemented. |
+| Projectile art | Native X4 normal/medium/full buster classes use supplied size-specific frames. Complete animated flight, muzzle and impact sequences and exact X1 Zero shot behavior are not implemented. |
+| Movement and damage | Uses X4 movement, collision, charge thresholds and damage. Exact SNES X1 speed, acceleration, wall handling and damage tables are not ported. X4 boss weapons remain available to X by owner choice. |
+| Zero's abilities | A playable buster interpretation; X1 Zero was an NPC. No saber, learned saber techniques, air dash or double jump. |
+| Scripted/vehicle poses | Dedicated ride, door, arrival, death and stage-specific sprite coverage is incomplete. Generic available poses are not a claim of faithful bespoke animation. |
+| Menus and story | Original X4 portraits, dialogue, movies and native menu artwork remain. |
+| Host/rendering coverage | OpenGL on Windows only so far. Other renderers/platforms and netplay are unqualified. |
+| Campaign coverage | Selected native combat, controls and current-build snapshots pass; complete stage/boss/route coverage and native-save progression are not qualified. |
+
+The standing-fire correction and charge cue must be inspected for both seats,
+both campaign rosters and both facing directions before another owner handoff.
