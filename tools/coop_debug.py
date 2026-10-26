@@ -23,8 +23,9 @@ def capture_pair(runtime, path):
 
 
 class Runtime:
-    def __init__(self, port=14525):
+    def __init__(self, port=14525, *, isolated_inputs=False):
         self.port = port
+        self.isolated_inputs = isolated_inputs
 
     def request(self, cmd, **fields):
         with socket.create_connection(('127.0.0.1', self.port), timeout=15) as conn:
@@ -44,6 +45,13 @@ class Runtime:
         return self.request('set_input', buttons=hex(buttons), port=seat+1)
 
     def release(self):
+        if self.isolated_inputs:
+            # Automated profiles keep neutral pads connected. Clearing an
+            # override hands input to physical devices (or unplugs P2), so an
+            # owner's controller can otherwise affect an unattended check.
+            self.input(0xffff, 0)
+            self.input(0xffff, 1)
+            return
         self.request('clear_input')
         self.request('clear_input', port=2)
 

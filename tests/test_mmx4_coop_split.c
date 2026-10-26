@@ -74,7 +74,7 @@ void psx_mod_write_word(uint32_t address,uint32_t value) {
     psx_mod_write_half(address,(uint16_t)value);psx_mod_write_half(address+2,(uint16_t)(value>>16));
 }
 uint32_t psx_mod_memory_alloc(uint32_t size,uint32_t alignment) {
-    CHECK(size<4096 && alignment==4);return 0x801F0000u;
+    CHECK(size<8192 && alignment==4);return 0x801F0000u;
 }
 int psx_mod_register_function_filter_plugin(const char *id,uint32_t address,PSXModFunctionFilterCallback callback) {
     CHECK(!strcmp(id,"mmx4.coop") && filter_count<40);
@@ -125,6 +125,7 @@ unsigned mmx4_coop_secondary_allocation_owner(uint32_t actor) {
     return actor==0x8013F328u?fireball_owner:0;
 }
 static unsigned frost_camera_calls;
+static unsigned chaser_camera_calls,chaser_placements_retired;
 static int frost_leader_x;
 static unsigned jungle_calls,jungle_private_calls;
 int mmx4_coop_combat_actor_context(void) {return (int)actor_context;}
@@ -164,6 +165,34 @@ static uint32_t invoke(CPUState *cpu,uint32_t address) {
     for(unsigned index=0;index<filter_count;++index)
         if(filters[index].address==address && filters[index].callback(cpu,address))return cpu->gpr[2];
     uint32_t actor=cpu->gpr[4];
+    if(address==0x800B8F5Cu) {
+        ++chaser_camera_calls;
+        CHECK(!mmx4_coop_split_snapshot_ready());
+        switch(psx_mod_read_byte(actor+4)) {
+        case 0:
+            psx_mod_write_half(actor+0x18,psx_mod_read_half(CAMERA+0x2A));
+            psx_mod_write_half(actor+0x1A,psx_mod_read_half(CAMERA+0x28));
+            psx_mod_write_half(CAMERA+0x24,1000);psx_mod_write_half(CAMERA+0x26,1000);
+            psx_mod_write_byte(CAMERA+0x47,6);psx_mod_write_byte(CAMERA+0x51,0);
+            psx_mod_write_byte(actor+4,1);break;
+        case 1:
+            if(psx_mod_read_half(CAMERA+10)>=1000)psx_mod_write_byte(actor+4,2);
+            break;
+        case 2:
+            psx_mod_write_half(CAMERA+0x24,1300);
+            psx_mod_write_half(CAMERA+0x2A,psx_mod_read_half(actor+0x18));
+            psx_mod_write_half(CAMERA+0x28,psx_mod_read_half(actor+0x1A));
+            psx_mod_write_byte(CAMERA+0x51,1);psx_mod_write_byte(CAMERA+0x47,2);
+            return invoke(cpu,0x8002B108u);
+        default:CHECK(0);
+        }
+        return 0;
+    }
+    if(address==0x8002B108u) {
+        uint32_t placement=psx_mod_read_word(actor+0x10);
+        if(placement) {psx_mod_write_byte(placement,0x80);++chaser_placements_retired;}
+        psx_mod_write_word(actor,0);psx_mod_write_word(actor+4,0);return 0;
+    }
     if(address==0x800BC748u) {
         ++volcano_calls;volcano_player_x=(int16_t)psx_mod_read_half(MMX4_PLAYER+10);
         fireball_owner=projected+1u;
@@ -2476,5 +2505,30 @@ int main(void) {
     for(unsigned layer=0;layer<3;++layer)scroll_before[1][layer*0x54+0x47]=chaser_speeds[layer];
     CHECK(!memcmp(view,scroll_before[1],sizeof view));
     for(unsigned i=0;i<sizeof world_before;++i)CHECK(psx_mod_read_byte(CAMERA+i)==world_before[i]);
+    /* One rider finishes the original scrolling controller while the other
+     * keeps riding. Its private terminal flag/bounds must not publish across
+     * views; consume the original placement only after both finish. */
+    mmx4_coop_split_reset();psx_mod_write_byte(MMX4_PLAY+12,5);
+    const uint32_t chaser=0x80142F98u,placement_record=TABLE+64u;
+    psx_mod_write_byte(chaser,1);psx_mod_write_byte(chaser+1,16);
+    psx_mod_write_byte(chaser+4,0);psx_mod_write_word(chaser+0x10,placement_record);
+    psx_mod_write_byte(placement_record,1);actor_position(CAMERA,100,0);
+    psx_mod_write_byte(CAMERA+0x51,0);mmx4_coop_split_camera_prepare(0);
+    actor_position(saved_camera(1,0),200,0);cpu.gpr[4]=chaser;
+    invoke(&cpu,0x800B8F5Cu);CHECK(chaser_camera_calls==2);
+    actor_position(CAMERA,1000,0);
+    invoke(&cpu,0x800B8F5Cu);invoke(&cpu,0x800B8F5Cu);
+    CHECK(psx_mod_read_byte(CAMERA+0x51)==1);
+    CHECK(psx_mod_read_byte(saved_camera(1,0)+0x51)==0);
+    CHECK(psx_mod_read_half(saved_camera(1,0)+10)==200);
+    CHECK(psx_mod_read_byte(chaser)==1 && psx_mod_read_byte(chaser+4)==0);
+    CHECK(psx_mod_read_byte(placement_record)==1 && !chaser_placements_retired);
+    uint32_t unfinished_digest=mmx4_coop_split_digest(1);
+    actor_position(saved_camera(1,0),1000,0);
+    invoke(&cpu,0x800B8F5Cu);invoke(&cpu,0x800B8F5Cu);
+    CHECK(psx_mod_read_byte(saved_camera(1,0)+0x51)==1);
+    CHECK(!psx_mod_read_byte(chaser) && psx_mod_read_byte(placement_record)==0x80);
+    CHECK(chaser_placements_retired==1 && mmx4_coop_split_snapshot_ready());
+    CHECK(unfinished_digest!=mmx4_coop_split_digest(1));
     puts("mmx4_coop_split_test: PASS");return 0;
 }

@@ -13,7 +13,11 @@
 #define STAIRS_OFFSET (VISITS_OFFSET+MMX4_COOP_PLACEMENTS/8u)
 #define JUNGLE_OFFSET (STAIRS_OFFSET+2u*0x30u)
 #define INTRO_OWNER_OFFSET (JUNGLE_OFFSET+2u*TRAIN_SLOTS*TRAIN_ACTOR_BYTES)
-#define STATE_BYTES (INTRO_OWNER_OFFSET+48u*4u)
+#define CHASER_OFFSET (INTRO_OWNER_OFFSET+48u*4u)
+#define CHASER_POOL 0x80142F98u
+#define CHASER_SLOTS 32u
+#define CHASER_RECORD_BYTES (4u+2u*0x30u)
+#define STATE_BYTES (CHASER_OFFSET+CHASER_SLOTS*CHASER_RECORD_BYTES)
 
 static uint32_t state;
 static unsigned scanning,bounds_call,supplemental,spatial_call,background_call;
@@ -28,13 +32,14 @@ static unsigned train_scene_call;
 static unsigned intro_explosion_call,intro_shake_call,intro_explosion_published;
 static unsigned intro_camera_call;
 static unsigned volcano_call,volcano_fireball_call;
+static unsigned chaser_camera_call;
 static void initialize_cameras(void);
 
 int mmx4_coop_split_snapshot_ready(void) {
     return !(scanning || bounds_call || supplemental || spatial_call || mushroom_camera_call || destructible_camera_call || lift_camera_call || jungle_background_call || frost_camera_call || background_call ||
         background_actor || background_dx || background_parallax || train_scene_call ||
         intro_explosion_call || intro_shake_call || intro_explosion_published || intro_camera_call ||
-        volcano_call || volcano_fireball_call);
+        volcano_call || volcano_fireball_call || chaser_camera_call);
 }
 int mmx4_coop_split_snapshot(Mmx4SnapshotIO *s) {
     /* Camera, placement and controller bytes use the guest-memory section. */
@@ -210,6 +215,7 @@ void mmx4_coop_split_reset(void) {
     intro_explosion_call=intro_shake_call=intro_explosion_published=0;
     intro_camera_call=0;
     volcano_call=volcano_fireball_call=0;
+    chaser_camera_call=0;
 }
 int mmx4_coop_split_activate(void) {
     state=mmx4_coop_split_views()?psx_mod_memory_alloc(STATE_BYTES,4):0;
@@ -259,6 +265,45 @@ static void initialize_cameras(void) {
     copy_camera(state+16u,CAMERA);
     copy_camera(state+16u+CAMERA_BYTES,CAMERA);
     psx_mod_write_word(state,1);
+}
+static int chaser_camera(CPUState *cpu,uint32_t address) {
+    uint32_t actor=cpu->gpr[4];
+    if(chaser_camera_call || !available() || mmx4_coop_projected() ||
+       psx_mod_read_byte(MMX4_PLAY+12)!=5 || actor<CHASER_POOL ||
+       actor>=CHASER_POOL+CHASER_SLOTS*0x30u || (actor-CHASER_POOL)%0x30u ||
+       !psx_mod_read_byte(actor) || psx_mod_read_byte(actor+1)!=16)return 0;
+    initialize_cameras();
+    uint32_t record=state+CHASER_OFFSET+(actor-CHASER_POOL)/0x30u*CHASER_RECORD_BYTES;
+    if(!psx_mod_read_word(record)) {
+        uint8_t bytes[0x30];read_bytes(actor,bytes,sizeof bytes);
+        /* B8F5C only advances its own phase and camera. Give each rider that
+         * original state machine; retiring a private copy must not mark the
+         * shared placement consumed before the other rider reaches the end. */
+        memset(bytes+0x10,0,4);
+        for(unsigned seat=0;seat<2;++seat)write_bytes(record+4u+seat*0x30u,bytes,sizeof bytes);
+        psx_mod_write_word(record,1);
+    }
+    unsigned owner=mmx4_coop_alive(0)?0u:1u;
+    copy_camera(state+16u+owner*CAMERA_BYTES,CAMERA);
+    unsigned pending=0;
+    chaser_camera_call=1;
+    for(unsigned seat=0;seat<2;++seat) {
+        uint32_t local_actor=record+4u+seat*0x30u;
+        if(!mmx4_coop_alive(seat))continue;
+        copy_camera(CAMERA,state+16u+seat*CAMERA_BYTES);
+        if(psx_mod_read_byte(local_actor))
+            mmx4_coop_call(cpu,address,local_actor,cpu->gpr[5]);
+        copy_camera(state+16u+seat*CAMERA_BYTES,CAMERA);
+        pending|=psx_mod_read_byte(local_actor);
+    }
+    copy_camera(CAMERA,state+16u+owner*CAMERA_BYTES);
+    if(!pending) {
+        mmx4_coop_call(cpu,0x8002B108u,actor,0);
+        psx_mod_write_word(record,0);
+    }
+    chaser_camera_call=0;
+    psx_mod_counter_add("mmx4.coop.chaser-private-exit-ticks",1);
+    return mmx4_coop_finish(cpu,0);
 }
 void mmx4_coop_split_camera_scroll(unsigned seat,const uint8_t speed[3]) {
     if(!available() || seat>1 || psx_mod_local_view_scope())return;
@@ -1346,7 +1391,7 @@ static int scan_players(CPUState *cpu,uint32_t address) {
     if(scanning || !available())return 0;
     uint32_t table=placement_table();if(!table)return 0;
     if(table!=psx_mod_read_word(state+4u)) {
-        for(unsigned offset=VISITS_OFFSET;offset<STATE_BYTES;offset+=4)
+        for(unsigned offset=VISITS_OFFSET;offset<CHASER_OFFSET;offset+=4)
             psx_mod_write_word(state+offset,0);
         psx_mod_write_word(state+4u,table);
     }
@@ -1504,6 +1549,7 @@ static int frost_ice_range(CPUState *cpu,uint32_t address) {
     return mmx4_coop_finish(cpu,0);
 }
 PSX_MOD_CONSTRUCTOR(mmx4_register_coop_split) {
+    psx_mod_register_function_filter_plugin(COOP_ID,0x800B8F5Cu,chaser_camera);
     psx_mod_register_instruction_plugin(COOP_ID,0x80099634u,0x8E240008u,intro_projectile_origin);
     psx_mod_register_instruction_plugin(COOP_ID,0x80099650u,0x00000000u,intro_projectile_origin);
     psx_mod_register_function_filter_plugin(COOP_ID,0x800BC748u,volcano_controller);

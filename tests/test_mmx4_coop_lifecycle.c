@@ -22,6 +22,7 @@ int psx_mod_local_view_scope(void) {return (int)local_view;}
 
 static uint8_t ram[0x200000],p2[0xE4],p1_backup[0xE4];
 static uint8_t p2_vehicle[0xB0],p1_vehicle_backup[0xB0];
+static unsigned chaser_cleanup_calls;
 static unsigned projected,ready=1,world_calls,observed_campaign,collect_calls[2];
 static unsigned pause_commit,pause_exit,world_draws;
 static unsigned personal_model,personal_native_calls[2],personal_draws[2];
@@ -661,6 +662,10 @@ uint32_t mmx4_coop_call(CPUState *cpu,uint32_t address,uint32_t a0,uint32_t a1) 
         psx_mod_write_byte(MMX4_PLAYER+0xC0,1);psx_mod_write_byte(MMX4_PLAY+0x1C,1);break;
     case 0x80036B18:
         psx_mod_write_byte(MMX4_PLAYER+0xC0,0);psx_mod_write_byte(MMX4_PLAY+0x1C,0);break;
+    case 0x8003BAE8:
+        assert(a0==MMX4_VEHICLE);
+        ++chaser_cleanup_calls;
+        psx_mod_write_word(a0,0);psx_mod_write_word(a0+4,0);break;
     case 0x800311EC:
         observed_controls=psx_mod_read_half(MMX4_PLAYER+0x7C);
         if(both_door_players) {
@@ -1176,10 +1181,12 @@ static int simultaneous_menu_ownership(void) {
     for(unsigned phase=0;phase<5;++phase) {
         personal_menu[0].native[6]=(uint8_t)phase;
         CHECK(mmx4_coop_lifecycle_personal_menus()==(phase!=2));
+        CHECK(mmx4_coop_lifecycle_shared_menu()==(phase==2));
     }
     personal_menu[0].native[6]=1;personal_menu_write(&personal_menu[0]);
     psx_mod_write_byte(MENU+6,2);personal_pass=1;personal_seat=0;
     CHECK(!mmx4_coop_lifecycle_personal_menus());
+    CHECK(mmx4_coop_lifecycle_shared_menu());
     psx_mod_write_byte(MENU+6,3);CHECK(mmx4_coop_lifecycle_personal_menus());
     personal_pass=0;personal_menu[0].native[6]=0;
     {
@@ -1263,18 +1270,21 @@ static int marine_chaser_dismount(void) {
         CHECK(!script_active && !warp_pending && !warp_phase);
         CHECK(mmx4_coop_lifecycle_can_tick() && !mmx4_coop_lifecycle_hidden(1));
         CHECK(p2[0xC5]==255 && body_word(p2,12)==119u<<16);
+        if(split)CHECK(!psx_mod_read_byte(PLAY+0x1C));
         /* P2's own vehicle must now eject its rider, rather than being hidden
          * and carried to P1's later on-foot position. */
         p2[0xC5]=0;mmx4_coop_enter_second();
         mmx4_coop_call(&cpu,0x80036AE4u,0x17,0x40);mmx4_coop_leave_second();
         CHECK(p2[0xC0]==1 && !script_active && !warp_pending);
         cpu.gpr[31]=0x8003BAC4u;
+        if(split)psx_mod_write_byte(PLAY+0x1C,1); /* A separate scene owns it. */
         psx_mod_write_byte(MMX4_VEHICLE+4,3);
         mmx4_coop_call(&cpu,0x80036B18u,MMX4_VEHICLE,0);
         CHECK(!psx_mod_read_byte(PLAYER+0xC0) && p2[0xC0]==1);
         p2_vehicle[4]=3;mmx4_coop_enter_second();
         mmx4_coop_call(&cpu,0x80036B18u,MMX4_VEHICLE,0);mmx4_coop_leave_second();
         CHECK(!p2[0xC0] && !script_active && !warp_pending && !warp_phase);
+        if(split)CHECK(psx_mod_read_byte(PLAY+0x1C)==1);
         CHECK(psx_mod_read_byte(PLAY+0x43)==campaign && !projected);
     }
     /* Other scene commands and vehicle contexts keep their shared carry. */
@@ -1293,7 +1303,41 @@ static int marine_chaser_dismount(void) {
     return 0;
 }
 
+static int marine_chaser_transport(void) {
+    CPUState cpu={0};
+    for(unsigned owner=0;owner<2;++owner)for(unsigned excluded=0;excluded<4;++excluded) {
+        reset();
+        psx_mod_write_byte(PLAY+12,excluded==1?4:5);
+        psx_mod_write_byte(PLAY+13,excluded==2?0:1);
+        if(owner) {
+            psx_mod_write_byte(PLAYER+0xC5,255);
+            psx_mod_write_byte(PLAYER+0xC0,1);
+            psx_mod_write_byte(MMX4_VEHICLE,1);
+            p2[0xC5]=excluded==3?255:0;
+        }else {
+            p2[0xC5]=255;p2[0xC0]=1;p2_vehicle[0]=1;
+            psx_mod_write_byte(PLAYER+0xC5,excluded==3?255:0);
+        }
+        warp_owner=script_owner=owner;warp_pending=script_active=1;
+        psx_mod_write_byte(PLAY+0x1C,1);
+        unsigned cleanups=chaser_cleanup_calls;
+        warp_begin(&cpu);
+        unsigned mounted=owner?psx_mod_read_byte(PLAYER+0xC5):p2[0xC5];
+        if(!excluded) {
+            CHECK(chaser_cleanup_calls==cleanups+1 && !mounted);
+            CHECK(!warp_vehicle_active && !warp_vehicle_visible && warp_phase==3);
+        }else {
+            CHECK(chaser_cleanup_calls==cleanups && mounted==255);
+            CHECK(warp_vehicle_active && warp_phase==1);
+        }
+        CHECK(!projected && !warp_pending && script_active && script_owner==owner);
+        CHECK(psx_mod_read_byte(PLAY+0x1C)==1);
+    }
+    return 0;
+}
+
 int main(void) {
+    CHECK(!marine_chaser_transport());
     CHECK(!simultaneous_menu_exit());
     CHECK(!simultaneous_menu_ownership());
     CHECK(!personal_tank_inventory());
