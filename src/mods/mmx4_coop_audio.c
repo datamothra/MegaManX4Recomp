@@ -3,6 +3,7 @@
  * See docs/COOP_AUDIO_EVIDENCE.md. No derived assets ship with the program. */
 #include "mmx4_coop_internal.h"
 #include "mmx4_coop_assets.h"
+#include "mmx4_x1.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -25,6 +26,12 @@ static unsigned sound_call,voice_call,stop_call;
 static uint32_t audio_state;
 /* Derived residency belongs to one SPU boot, not to the saved simulation. */
 static uint32_t bound_epoch;
+static int audio_ready(void) {
+    return mmx4_coop_ready() || (audio_state && mmx4_x1_enabled(1));
+}
+static int private_context(void) {
+    return mmx4_coop_projected() || mmx4_x1_buster_context();
+}
 static void read_bytes(uint32_t address,uint8_t *out,unsigned n) {
     for(unsigned i=0;i<n;++i)out[i]=psx_mod_read_byte(address+i);
 }
@@ -141,14 +148,15 @@ static int open_bank(CPUState *cpu,AudioBank *bank) {
 }
 static int character_sound(CPUState *cpu,uint32_t address) {
     unsigned group=cpu->gpr[4]&0x7Fu;
-    if(sound_call || !mmx4_coop_ready() || !mmx4_coop_projected() ||
+    if(sound_call || !audio_ready() || !private_context() ||
        psx_mod_local_view_scope() || psx_mod_read_byte(MMX4_PLAY)!=6 ||
        (group!=1 && group!=3))return 0;
     unsigned character=psx_mod_read_byte(MMX4_PLAYER+2);
+    if(mmx4_x1_buster_context() && group==3)character=1;
     if(character>1)return 0;
     AudioBank *bank=&banks[character][group==3];if(!bank->loaded)return 0;
     sound_call=1;
-    if(!open_bank(cpu,bank)) {
+    if(!bind_sample_banks() || !open_bank(cpu,bank)) {
         sound_call=0;psx_mod_counter_add("mmx4.coop.audio-bank-open-failed",1);
         return mmx4_coop_finish(cpu,(uint32_t)-1);
     }
@@ -167,7 +175,7 @@ static int character_sound(CPUState *cpu,uint32_t address) {
     sound_call=0;return mmx4_coop_finish(cpu,result);
 }
 static int voice_key_on(CPUState *cpu,uint32_t address) {
-    if(voice_call || !mmx4_coop_ready() || psx_mod_local_view_scope())return 0;
+    if(voice_call || !audio_ready() || psx_mod_local_view_scope())return 0;
     uint32_t id=cpu->gpr[5];uint32_t bank=0;
     if(id>=12 && id<16 && banks[(id-12)/2][(id-12)%2].loaded)bank=id;
     unsigned voice=cpu->gpr[4];
@@ -211,7 +219,7 @@ static int voice_key_on(CPUState *cpu,uint32_t address) {
 }
 static int voice_status(CPUState *cpu,uint32_t address) {
     (void)address;
-    if(!sound_call || !mmx4_coop_projected())return 0;
+    if(!sound_call || !private_context())return 0;
     return mmx4_coop_finish(cpu,(psx_mod_spu_private_voice_active()&cpu->gpr[4])?1u:0u);
 }
 static int private_stop(CPUState *cpu,uint32_t address) {
@@ -224,7 +232,7 @@ static int private_stop(CPUState *cpu,uint32_t address) {
 }
 static int character_stop(CPUState *cpu,uint32_t address) {
     unsigned group=cpu->gpr[4]&255u;
-    if(stop_call || !mmx4_coop_ready() || psx_mod_local_view_scope())return 0;
+    if(stop_call || !audio_ready() || psx_mod_local_view_scope())return 0;
     if(group==255u) {
         stop_call=2;
         uint32_t result=mmx4_coop_call(cpu,address,cpu->gpr[4],cpu->gpr[5]);
@@ -232,8 +240,9 @@ static int character_stop(CPUState *cpu,uint32_t address) {
         psx_mod_spu_private_voice_stop(0xFFFFFFu);stop_call=0;
         return mmx4_coop_finish(cpu,result);
     }
-    if(!mmx4_coop_projected() || (group!=1 && group!=3))return 0;
+    if(!private_context() || (group!=1 && group!=3))return 0;
     unsigned character=psx_mod_read_byte(MMX4_PLAYER+2);
+    if(mmx4_x1_buster_context() && group==3)character=1;
     if(character>1 || !banks[character][group==3].loaded)return 0;
     uint32_t pointer=SOUND_RECORDS+group*4u,saved=psx_mod_read_word(pointer);
     psx_mod_write_word(pointer,banks[character][group==3].guest+8u);stop_call=1;
@@ -242,10 +251,13 @@ static int character_stop(CPUState *cpu,uint32_t address) {
     return mmx4_coop_finish(cpu,result);
 }
 PSX_MOD_CONSTRUCTOR(mmx4_register_coop_audio) {
-    psx_mod_register_function_filter_plugin(ID,SOUND,character_sound);
-    psx_mod_register_function_filter_plugin(ID,VOICE_KEY_ON,voice_key_on);
-    psx_mod_register_function_filter_plugin(ID,0x80015930u,character_stop);
-    psx_mod_register_function_filter_plugin(ID,0x800DBF34u,voice_status);
-    psx_mod_register_function_filter_plugin(ID,0x800E0090u,private_stop);
-    psx_mod_register_function_filter_plugin(ID,0x800E0E7Cu,private_stop);
+    const char *plugins[]={ID,"mmx4.x1_zero"};
+    for(unsigned i=0;i<2;++i) {
+        psx_mod_register_function_filter_plugin(plugins[i],SOUND,character_sound);
+        psx_mod_register_function_filter_plugin(plugins[i],VOICE_KEY_ON,voice_key_on);
+        psx_mod_register_function_filter_plugin(plugins[i],0x80015930u,character_stop);
+        psx_mod_register_function_filter_plugin(plugins[i],0x800DBF34u,voice_status);
+        psx_mod_register_function_filter_plugin(plugins[i],0x800E0090u,private_stop);
+        psx_mod_register_function_filter_plugin(plugins[i],0x800E0E7Cu,private_stop);
+    }
 }

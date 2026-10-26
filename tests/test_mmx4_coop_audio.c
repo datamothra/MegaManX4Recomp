@@ -8,6 +8,9 @@
 static uint8_t ram[0x200000],private_ram[0x10000];
 static uint32_t allocated,registered,opened,native_sound,pending_bank;
 static unsigned projected=1,ready=1,local_view;
+static unsigned x1_zero,x1_context;
+int mmx4_x1_enabled(unsigned character) {return character==1 && x1_zero;}
+int mmx4_x1_buster_context(void) {return x1_context;}
 static unsigned transfer_busy;
 static PSXModFunctionFilterCallback sound_filter,key_filter,stop_filter,status_filter,volume_filter,off_filter;
 static uint32_t private_bank,private_active,private_stops;
@@ -42,7 +45,7 @@ int mmx4_coop_ready(void) {return ready;}
 int mmx4_coop_projected(void) {return projected;}
 int mmx4_coop_finish(CPUState *c,uint32_t v) {c->gpr[2]=v;return 1;}
 int psx_mod_register_function_filter_plugin(const char *id,uint32_t a,PSXModFunctionFilterCallback cb) {
-    CHECK(!strcmp(id,"mmx4.coop"));
+    CHECK(!strcmp(id,"mmx4.coop") || !strcmp(id,"mmx4.x1_zero"));
     if(a==SOUND)sound_filter=cb;else if(a==KEY_ON)key_filter=cb;
     else if(a==0x80015930u)stop_filter=cb;else if(a==0x800DBF34u)status_filter=cb;
     else if(a==0x800E0090u)off_filter=cb;else {CHECK(a==0x800E0E7Cu);volume_filter=cb;}
@@ -77,6 +80,7 @@ uint32_t mmx4_coop_call(CPUState *cpu,uint32_t a,uint32_t a0,uint32_t a1) {
     }
     CHECK(a==SOUND && !sound_filter(cpu,a));++native_sound;
     unsigned group=a0&0x7F,character=psx_mod_read_byte(MMX4_PLAYER+2);
+    if(x1_context && group==3)character=1;
     uint32_t record=psx_mod_read_word(0x80141F50u+group*4);
     CHECK((psx_mod_read_byte(record)&0xC0)==0x80);
     unsigned id=psx_mod_read_byte(record)&0x3F;
@@ -149,6 +153,17 @@ int main(void) {
     }
     CHECK(opened==8 && native_sound==12);
     CHECK(private_plays==12);
+    /* Solo X1 Zero uses X's effects and Zero's voice bank, even though
+     * the native movement call temporarily exposes X's body identity. */
+    ready=projected=0;x1_zero=x1_context=1;psx_mod_write_byte(MMX4_PLAYER+2,0);
+    for(unsigned group=1;group<=3;group+=2) {
+        CPUState x1={0};x1.gpr[4]=group;
+        CHECK(sound_filter(&x1,SOUND)&&x1.gpr[2]==0xABCD);
+        CHECK(private_bank==(group==1?12u:15u));
+    }
+    x1_context=0;
+    {CPUState x1={0};x1.gpr[4]=1;CHECK(!sound_filter(&x1,SOUND));}
+    ready=projected=1;x1_zero=0;psx_mod_write_byte(MMX4_PLAYER+2,1);
     CPUState stop={0};stop.gpr[4]=1;stop.gpr[5]=0;
     CHECK(stop_filter(&stop,0x80015930u) && private_stops==1u<<20);
     CHECK(psx_mod_read_word(0x80141F54u)==0x80101000u);

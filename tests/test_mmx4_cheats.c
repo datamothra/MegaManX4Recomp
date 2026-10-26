@@ -24,6 +24,9 @@
 static uint8_t ram[2u * 1024u * 1024u], scratch[1024];
 static unsigned local_ultimate, local_black, coop_active, online_profile;
 static unsigned projected_second, registration_failures;
+static unsigned x1_enabled[2],x1_virtual;
+int mmx4_x1_enabled(unsigned character) {return character<2 && x1_enabled[character];}
+int mmx4_x1_buster_context(void) {return x1_virtual;}
 static unsigned guest_calls, requested_character, native_loaded;
 typedef struct { const char *id; uint32_t address; PSXModFunctionEntryCallback callback; } Entry;
 typedef struct { const char *id; uint32_t address; PSXModFunctionFilterCallback callback; } Filter;
@@ -201,6 +204,12 @@ static int policy(void) {
     CHECK(mmx4_cheats_character_enabled(0)&&!mmx4_cheats_character_enabled(1));
     local_black=1;CHECK(mmx4_cheats_character_enabled(1));
     CHECK(!mmx4_cheats_character_enabled(2)&&!mmx4_cheats_character_enabled(~0u));
+    for(unsigned character=0;character<2;++character) {
+        x1_enabled[character]=1;CHECK(!mmx4_cheats_character_enabled(character));
+        CHECK(mmx4_cheats_character_enabled(character^1u));x1_enabled[character]=0;
+    }
+    x1_virtual=1;CHECK(!mmx4_cheats_character_enabled(0) && !mmx4_cheats_character_enabled(1));
+    x1_virtual=0;
     local_ultimate=local_black=0;coop_active=1;
     CHECK(mmx4_cheats_character_enabled(0)&&mmx4_cheats_character_enabled(1));
     activate(ULTIMATE_PLUGIN);activate(BLACK_PLUGIN);

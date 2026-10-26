@@ -13,6 +13,7 @@
 #include "mmx4_coop_debug_protocol.h"
 #include "mmx4_coop_views.h"
 #include "mmx4_cheats.h"
+#include "mmx4_x1.h"
 #include "mod_netplay.h"
 #include "psx_netplay.h"
 #include "mod_snapshot.h"
@@ -255,11 +256,17 @@ static int load_character(unsigned character) {
     return character<2 && prepare_character(0,0) && prepare_character(1,0) &&
         prepare_ultimate_archive() && prepare_character(character,1);
 }
+int mmx4_coop_x1_resources(uint32_t out[4]) {
+    if(failed || !assets[0].sprites || !load_character(0))return 0;
+    out[0]=assets[0].sprites;out[1]=assets[0].assembly;
+    out[2]=assets[0].colors;out[3]=assets[0].palette;return 1;
+}
 static void enter_second(void) {
     projected=1;
     /* P2 follows the one campaign's permanent progress. Its native X body
      * consumes armor bytes; Zero keeps its own character-specific fields. */
     mmx4_coop_lifecycle_follow_progress(second.body,counterpart);
+    if(mmx4_x1_enabled(counterpart))second.body[0xA7]=second.body[0xB8]=0;
     capture_player(&first);project_player(&second);
     mmx4_coop_lifecycle_project();
     /* PLAY+37 is the one native campaign code flag. Only P1 owns its saved
@@ -423,6 +430,12 @@ static void diagnostics(void) {
     project(diagnostic+0x200,second.vehicle,sizeof second.vehicle);
 #ifndef PSX_NO_DEBUG_TOOLS
     for(unsigned i=0;i<16;++i)project(diagnostic+0x480+i*8,second.shots+i*0x9C,8);
+    if(!projected)for(unsigned i=0;i<16;++i) {
+        /* TCP reads of the native singleton can otherwise catch P2's
+         * temporary projection. Keep P1's projectile headers canonical. */
+        uint8_t header[8];capture(SHOTS+i*0x9C,header,sizeof header);
+        project(diagnostic+0x880+i*8,header,sizeof header);
+    }
     project(diagnostic+0x500,second.trails,sizeof second.trails);
     if(!projected) {
         /* One completed Lightning Web is enough for native partner-contact
@@ -1085,6 +1098,7 @@ static int define_ui_bank(const UiBank *bank) {
     return psx_mod_define_texture_bank(bank->id,width,width,pixels);
 }
 static int resolve_texture_bank(uint16_t id) {
+    if(mmx4_x1_resolve_texture(id))return 1;
     /* Restore exact DMA IDs from immutable ARC/UI pixels and stored CLUTs.
      * This callback never allocates guest memory or writes a guest palette. */
     if(id>=0x6000u && id-0x6000u<bank_count)return define_sprite_bank(&banks[id-0x6000u]);
@@ -1182,6 +1196,7 @@ static int coop_hud(CPUState *cpu,uint32_t address) {
     hud_call=0;return mmx4_coop_finish(cpu,result);
 }
 static void render_actor(CPUState *cpu,uint32_t actor,uint32_t base,unsigned character) {
+    if(mmx4_x1_render(cpu,actor,character))return;
     if(mmx4_coop_split_sprite_outside(actor))return;
     uint32_t start=psx_mod_read_word(SCRATCH+0x100),mode=psx_mod_read_word(SCRATCH+0x104);
     /* Native800244D0/8002452C selects static artwork with flags40/20.
@@ -1809,7 +1824,7 @@ static void activate(void) {
         assets[i].menu_gfx=space+0x50000;
         if(!space)failed=1;
     }
-    diagnostic=psx_mod_alloc_guest_memory(0x860,16); /* +0x800: scoped draw actor */
+    diagnostic=psx_mod_alloc_guest_memory(0x900,16); /* +0x800: draw actor; +0x880: P1 headers */
     arena=psx_mod_alloc_texture_packet_memory(2*FRAME_ARENA,16);
     hud_arena=psx_mod_alloc_texture_packet_memory(0x10000,16);
     if(!diagnostic || !arena || !hud_arena)failed=1;

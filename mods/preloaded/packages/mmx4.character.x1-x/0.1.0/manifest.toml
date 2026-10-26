@@ -1,0 +1,36 @@
+format_version = 11
+id = "mmx4.character.x1-x"
+version = "0.1.0"
+name = "X1 X"
+author = "mstan"
+description = "X1-inspired character replacement using supplied 32-bit fan sprites. Replaces every X armor form. Requires OpenGL and a fresh boot."
+resolver = "declarative"
+channel = "experimental"
+save_compatibility = "isolated"
+disables = ["mmx4.cheat.ultimate-armor"]
+
+[[target]]
+game_id = "SLUS-00561"
+disc_sha256 = "3ceab06ac99add4035f912188bcbf5b16c02056f46a33d38ff0c8dbce6cb613b"
+
+[[feature]]
+id = "character"
+name = "X1 X"
+description = "Replaces all X forms; keeps earned X4 boss weapons. Ground dash, wall climbing and a single charged buster; no X4 armor abilities."
+group = "Characters"
+default_enabled = false
+
+[[plugin]]
+feature = "character"
+id = "mmx4.x1_x"
+
+[[resource]]
+feature = "character"
+id = "sprites"
+label = "Supplied X1 X sprite sheet"
+format = "file"
+default = "assets/sheet.png"
+hidden = true
+required = true
+size = 533868
+sha256 = "38aac56e91351362f2924ef959556dc64be12948d630abcc6861703d90b3c191"

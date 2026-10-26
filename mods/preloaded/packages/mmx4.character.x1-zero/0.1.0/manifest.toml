@@ -1,0 +1,47 @@
+format_version = 11
+id = "mmx4.character.x1-zero"
+version = "0.1.0"
+name = "X1 Zero"
+author = "mstan"
+description = "X1-inspired character replacement using supplied 32-bit fan sprites. Replaces every Zero armor form. Requires OpenGL and a fresh boot."
+resolver = "declarative"
+channel = "experimental"
+save_compatibility = "isolated"
+disables = ["mmx4.cheat.black-zero"]
+
+[[target]]
+game_id = "SLUS-00561"
+disc_sha256 = "3ceab06ac99add4035f912188bcbf5b16c02056f46a33d38ff0c8dbce6cb613b"
+
+[[feature]]
+id = "character"
+name = "X1 Zero"
+description = "Replaces Zero and Black Zero with a chargeable Z-Buster character. Ground dash and wall climbing; no saber, double jump, air dash or X4 techniques."
+group = "Characters"
+default_enabled = false
+
+[[plugin]]
+feature = "character"
+id = "mmx4.x1_zero"
+
+[[resource]]
+feature = "character"
+id = "sprites"
+label = "Supplied X1 Zero sprite sheet"
+format = "file"
+default = "assets/sheet.png"
+hidden = true
+required = true
+size = 89493
+sha256 = "7fff0307f7c224be18ca592f9f4a6daf985014732eca5c625ccde521a77cac0b"
+
+[[resource]]
+feature = "character"
+id = "projectiles"
+label = "Supplied X1 buster effects"
+format = "file"
+default = "assets/projectiles.png"
+hidden = true
+required = true
+size = 533868
+sha256 = "38aac56e91351362f2924ef959556dc64be12948d630abcc6861703d90b3c191"

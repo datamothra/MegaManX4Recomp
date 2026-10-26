@@ -72,6 +72,19 @@ psxrecomp_v4_add_runtime_target(psx-runtime
         psx.enhancement.fast-loading
     EXTRAS_SOURCES ${GAME_GENERATED_EXTRAS} ${MMX4_MOD_PLUGIN_SOURCES}
 )
+# Atlas metadata is code-generated with Python's standard library; PNG pixels
+# are verified package resources decoded by the shared runtime image service.
+if(NOT PSX_PYTHON)
+    find_package(Python3 3.11 REQUIRED COMPONENTS Interpreter)
+    set(PSX_PYTHON "${Python3_EXECUTABLE}")
+endif()
+set(MMX4_X1_FRAME_HEADER "${CMAKE_CURRENT_BINARY_DIR}/mmx4_x1_frame_data.h")
+add_custom_command(OUTPUT "${MMX4_X1_FRAME_HEADER}"
+    COMMAND "${PSX_PYTHON}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/generate_x1_frames.py"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/mods/mmx4_x1_frames.json" "${MMX4_X1_FRAME_HEADER}"
+    DEPENDS tools/generate_x1_frames.py src/mods/mmx4_x1_frames.json VERBATIM)
+target_sources(psx-runtime PRIVATE "${MMX4_X1_FRAME_HEADER}")
+target_include_directories(psx-runtime PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 psxrecomp_add_implementation(psx-runtime
     NAME resident-loading CONTRACT slus00561-arc-callback-v1
     HLE_SOURCES src/mods/mmx4_resident.cpp
@@ -82,6 +95,10 @@ psxrecomp_add_implementation(psx-runtime
 # their source contract in the profile handshake so different spike builds
 # cannot join under the same fixed development version.
 set(MMX4_COOP_CONTRACT_FILES
+    src/mods/mmx4_x1.c src/mods/mmx4_x1.h src/mods/mmx4_x1_assets.cpp
+    src/mods/mmx4_x1_frames.json tools/generate_x1_frames.py
+    mods/preloaded/packages/mmx4.character.x1-x/0.1.0/manifest.toml
+    mods/preloaded/packages/mmx4.character.x1-zero/0.1.0/manifest.toml
     src/mods/mmx4_localization.cpp src/mods/mmx4_language_assets.h
     game.toml src/mods/mmx4_coop_plugin.c src/mods/mmx4_coop_lifecycle.c
     src/mods/mmx4_coop_combat.c src/mods/mmx4_coop_assets.c src/mods/mmx4_coop_audio.c
@@ -182,6 +199,9 @@ if(BUILD_TESTING)
     add_executable(mmx4_cheats_test tests/test_mmx4_cheats.c src/mods/mmx4_cheats.c)
     target_include_directories(mmx4_cheats_test PRIVATE src/mods "${PSXRECOMP_V4_ROOT}/runtime/include")
     add_test(NAME mmx4_cheats_test COMMAND mmx4_cheats_test)
+    add_executable(mmx4_x1_test tests/test_mmx4_x1.c src/mods/mmx4_x1.c)
+    target_include_directories(mmx4_x1_test PRIVATE src/mods "${PSXRECOMP_V4_ROOT}/runtime/include")
+    add_test(NAME mmx4_x1_test COMMAND mmx4_x1_test)
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/mmx4/SLUS_005.61")
         add_test(NAME mmx4_cheats_native_contract_test COMMAND mmx4_cheats_test
             "${CMAKE_CURRENT_SOURCE_DIR}/mmx4/SLUS_005.61")
@@ -302,6 +322,8 @@ if(PSX_BUILD_COSIM)
         EXTRAS_SOURCES ${GAME_GENERATED_EXTRAS} ${MMX4_MOD_PLUGIN_SOURCES}
         COSIM
     )
+    target_sources(psx-cosim PRIVATE "${MMX4_X1_FRAME_HEADER}")
+    target_include_directories(psx-cosim PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
     psxrecomp_add_implementation(psx-cosim
         NAME resident-loading CONTRACT slus00561-arc-callback-v1
         HLE_SOURCES src/mods/mmx4_resident.cpp

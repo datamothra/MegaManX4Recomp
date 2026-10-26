@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
             return fail("manifest parse failed: " + error);
         }
     }
-    if (manifest_count != 9) return fail("expected nine package manifests, including one Japanese FMVs mod");
+    if (manifest_count != 11) return fail("expected eleven package manifests, including separate X1 X/Zero mods");
 
     PSXRecompV4::mod_clear_plugins_for_tests();
     for (const char* id : {
@@ -59,7 +59,7 @@ int main(int argc, char** argv) {
              "mmx4.widescreen", "mmx4.coop", "mmx4.diagnostics",
              "mmx4.ultimate_armor", "mmx4.black_zero",
              "mmx4.japanese-media", "mmx4.translation",
-             "mmx4.japanese-fmvs"}) {
+             "mmx4.japanese-fmvs", "mmx4.x1_x", "mmx4.x1_zero"}) {
         if (!PSXRecompV4::mod_register_activation_plugin(id, no_op_plugin)) {
             return fail(std::string("could not register test plugin ") + id);
         }
@@ -69,8 +69,8 @@ int main(int argc, char** argv) {
     std::string error;
     if (!manager.scan(&error)) return fail("catalog scan failed: " + error);
     if (!manager.load_state(&error)) return fail("default state failed: " + error);
-    if (manager.packages().size() != 9)
-        return fail("expected nine package families");
+    if (manager.packages().size() != 11)
+        return fail("expected eleven package families");
 
     const auto default_plan = manager.resolve(kGameId, "", kDiscSha256);
     if (!default_plan.ok || !default_plan.writes.empty() ||
@@ -119,6 +119,26 @@ int main(int argc, char** argv) {
     if(manager.feature_enabled("mmx4.cheat.ultimate-armor","ultimate-armor") ||
        manager.feature_enabled("mmx4.cheat.black-zero","black-zero"))
         return fail("elective character cheats must default off");
+    for(const char* id:{"mmx4.character.x1-x","mmx4.character.x1-zero"})
+        if(manager.feature_enabled(id,"character"))return fail("X1 replacements must default off");
+    if(!manager.set_feature_enabled("mmx4.cheat.ultimate-armor","ultimate-armor",true,&error) ||
+       !manager.set_feature_enabled("mmx4.cheat.black-zero","black-zero",true,&error) ||
+       !manager.set_feature_enabled("mmx4.character.x1-x","character",true,&error))return fail(error);
+    auto x1=manager.resolve(kGameId,"",kDiscSha256);
+    if(!x1.ok || x1.resources.size()!=1 || !x1.resources[0].bytes)
+        return fail("X1 X must resolve its verified bundled sheet");
+    bool ultimate=false,black=false;
+    for(const auto& p:x1.plugins) {ultimate|=p.id=="mmx4.ultimate_armor";black|=p.id=="mmx4.black_zero";}
+    if(ultimate || !black)return fail("X1 X must suppress only the X armor mod");
+    if(!manager.set_feature_enabled("mmx4.character.x1-zero","character",true,&error))return fail(error);
+    x1=manager.resolve(kGameId,"",kDiscSha256);
+    if(!x1.ok || x1.resources.size()!=3)return fail("Both X1 replacements must coexist with verified resources");
+    for(const auto& p:x1.plugins)
+        if(p.id=="mmx4.ultimate_armor" || p.id=="mmx4.black_zero")return fail("Armor code leaked through X1 replacements");
+    for(const char* id:{"mmx4.character.x1-x","mmx4.character.x1-zero"})
+        if(!manager.set_feature_enabled(id,"character",false,&error))return fail(error);
+    if(!manager.set_feature_enabled("mmx4.cheat.ultimate-armor","ultimate-armor",false,&error) ||
+       !manager.set_feature_enabled("mmx4.cheat.black-zero","black-zero",false,&error))return fail(error);
       if(manager.feature_option_value("mmx4.coop","coop","separate_etanks")!="false")
           return fail("legacy individual-pausing E-tank preference must default off");
       if(manager.feature_option_value("mmx4.coop","coop","simultaneous_menus")!="true")

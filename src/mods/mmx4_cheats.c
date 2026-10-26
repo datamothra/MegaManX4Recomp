@@ -4,6 +4,7 @@
  * PLAY+37 remains P1's sole campaign flag. The co-op projection owns its
  * temporary P2 value and restores the canonical byte after each guest pass. */
 #include "mmx4_cheats.h"
+#include "mmx4_x1.h"
 #include "mmx4_coop_internal.h"
 #include "mod_plugins.h"
 #include "mod_runtime.h"
@@ -27,7 +28,7 @@ void mmx4_cheats_configure_coop(int ultimate_x, int black_zero) {
 }
 
 unsigned mmx4_cheats_character_enabled(unsigned character) {
-    if (character > 1) return 0;
+    if (character > 1 || mmx4_x1_enabled(character) || mmx4_x1_buster_context()) return 0;
     const char *package = character ? BLACK_PACKAGE : ULTIMATE_PACKAGE;
     return mod_runtime_snapshot_package_active(package) ||
         (mod_runtime_snapshot_package_active(COOP_PACKAGE) && coop_choices[character]);
