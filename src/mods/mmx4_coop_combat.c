@@ -309,13 +309,14 @@ static void counterpart_hit(CPUState *cpu,uint32_t address) {
     }
     if(psx_mod_read_byte(MMX4_PLAYER+2)!=1 ||
        psx_mod_read_byte(actor+1)!=73 || cpu->gpr[7]!=0x80108204u ||
-       !((type>=25 && type<=32) || type==34))return;
-    /* Kuuenzan (34) has no retail Double damage entry. Reuse his authored
-     * two-point saber damage for this collision only. Keep S0/A2 and the
-     * attack itself intact so consumption, hit tokens and the native result
-     * still describe Kuuenzan. A3 is only the subsequent damage lookup base.
+       !((type>=24 && type<=32) || type==34))return;
+    /* The first standing slash (24) and Kuuenzan (34) have no retail Double
+     * damage entry: he is X's campaign boss. Reuse his authored two-point
+     * saber damage for these collisions only. Keep S0/A2 and the attack
+     * intact so consumption, hit tokens and the native result retain the
+     * actual attack identity. A3 is only the subsequent damage lookup base.
      * This also precedes the damage multiplier and co-op health scaling. */
-    uint32_t entry=type==34?26u:type;
+    uint32_t entry=(type==24 || type==34)?26u:type;
     if(!psx_mod_read_byte(cpu->gpr[7]+entry*2u+1u))return;
     cpu->gpr[7]-=(type-entry)*2u;
     cpu->gpr[2]=0;

@@ -253,3 +253,69 @@ the final isolated runs use18556/18557. The runner now rejects occupied ports
 before it can launch or send controls/cleanup to another test process. Full
 original162,996-input recording replay and four-player Armor admission remain
 unqualified; these are controlled original-disc checks of the reported route.
+
+## Sigma follow-up from 1.0.8, October 25
+
+The supplied `Sigma stages bugs 1.0.8.zip` is retained unmodified. Its final
+session verifies all 148,119 complete input intervals against the original
+1.0.8 release, including state hashes and controller read order. A separate
+cross-build experiment verifies the first 46,000 intervals against the exact
+published 1.0.10 executable after rebinding only the build header. Execution
+identity, mod plan, inputs, read order and state hashes remain enforced. This
+bounded experiment does not promise cross-build recording compatibility.
+
+`beads-eio.9.257`: Double has no retail damage entry for Zero's first standing
+slash, type24. The existing counterpart collision handler now uses his authored
+type26 damage for that missing entry, as it already does for Kuuenzan. Attack
+identity, consumption, duplicate-hit handling, damage scaling and native
+cooldowns remain intact; the retail table is unchanged. `double_standing`
+requires isolated standing inputs and actual type24 writes by native8002DF0C.
+Both campaigns pass: Double48 to42 with Zero in P2, and48 to41 with Zero in P1
+after the native Iris encounter. A later combo cannot satisfy the assertion.
+
+`beads-eio.9.259`: the replay confirms a leading P2 dying at1121.5/593.8 while
+P1 waits at1056/459. An immediate checkpoint-arrival drop reproduces this on
+the current build; waiting for an idle arrival hides it. Native camera strips
+open the lower destination to592, but the easing current limit can remain274.
+At native27CE0, use the authored destination for the lethal bottom-test operand
+only in this exact Sigma2 lower room, in addition to the existing paired-door
+case. Do not change camera position, easing, terrain or health. The native
+`sigma_lower_route` test holds input through arrival, drops either leader in
+both campaigns with the partner still above, then walks into the actual lower
+pit to require a native death. All four landings retain32HP per hero; all four
+real pit checks kill only the falling hero.
+
+`beads-eio.9.260`: nativeD2420 admits Sigma's corridor scene atX2321. Either
+living player may now reach that threshold first; P1 retains simultaneous
+admission priority and an admitted owner remains latched. `sigma_entry` passes
+P1 survivor, P2 survivor, both/P1 leading and both/P2 leading in each campaign:
+eight native yellow-pad, corridor-scene and forward-section checks, preserving
+lives and proving movement afterward. Prior refight clear bytes are bypassed
+prerequisites. Zero's interstitial movie uses the native global pad1 Start
+skip; these checks do not qualify full movie playback or P2-only movie skip.
+
+`beads-eio.9.261`: after the upper Sigma forms, native855CC/855D4 expands the
+final arena targets to maxX1728/minY512 before36B18 releases the scene. Saved
+Split views could restore the upper1088/256 targets, preventing final boss
+admission. Publish those two native target changes to matching upper views
+before the handoff; retain origins, current limits and native easing. The
+`sigma_phase3_survivor` scenario passes both campaigns: actual attacks defeat
+both upper forms, P1 dies before the second defeat, P2 falls into the lower
+room, final type74 initializes at48HP and the survivor moves afterward with
+32HP and unchanged lives. One-HP, position and protection fixtures prepare
+combat; they do not set defeat, room-limit or admission flags. This qualifies
+the transition, not a complete final-boss victory.
+
+`beads-eio.9.258` remains open. In the original Frost Walrus refight recording,
+P2 loses6HP at a time, then dies at native108038 near Walrus. Both living
+private cameras remain inside the authored arena limits; P2's view follows P1
+after death. The owner cannot confirm whether the reported camera glitch
+preceded that death. No camera fault causing it has been established, and no
+speculative damage immunity or camera correction is included.
+
+Evidence is retained under `G:/Temp/Codex/psxrecomp/x4-sigma-111`, including
+original replay receipts, private-view observations, rejected probes and final
+native reports. Unit coverage includes standing-hit cooldowns, entrance-owner
+latching, excluded rooms/render passes and byte-for-byte camera preservation.
+Four Player uses separate stage logic; these two-player checks do not qualify
+its Sigma routes. Existing performance and pause-flash issues remain open.

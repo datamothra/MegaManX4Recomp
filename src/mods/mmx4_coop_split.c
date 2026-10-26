@@ -584,6 +584,28 @@ static int destructible_camera_unlock(CPUState *cpu,uint32_t address) {
     psx_mod_counter_add("mmx4.coop.split-destructible-camera-unlocks",1);
     return mmx4_coop_finish(cpu,result);
 }
+void mmx4_coop_split_sigma_drop_release(uint32_t actor) {
+    if(!available() || !psx_mod_read_word(state) ||
+       psx_mod_read_byte(MMX4_PLAY+12)!=12 || psx_mod_read_byte(MMX4_PLAY+13)!=1 ||
+       actor<0x8013BED0u || actor>=0x8013BED0u+48u*0x9Cu ||
+       (actor-0x8013BED0u)%0x9Cu || !psx_mod_read_byte(actor) ||
+       psx_mod_read_byte(actor+1)!=68 || psx_mod_read_byte(actor+4)!=2 ||
+       psx_mod_read_byte(actor+5)!=4 ||
+       psx_mod_read_half(CAMERA+0x24)!=1728 || psx_mod_read_half(CAMERA+0x26)!=1056 ||
+       psx_mod_read_half(CAMERA+0x28)!=512 || psx_mod_read_half(CAMERA+0x2A)!=512)return;
+    /* 855CC/855D4 release the lower final arena before36B18 ends the scene.
+     * Retained upper-room views otherwise restore maxX1088/minY256, keeping
+     * the final boss/door outside the reachable scan. Publish only those two
+     * authored targets, before that owner handoff; origins/easing stay native. */
+    for(unsigned seat=0;seat<2;++seat) {
+        uint32_t shadow=state+16u+seat*CAMERA_BYTES;
+        if(psx_mod_read_half(shadow+0x24)!=1088 || psx_mod_read_half(shadow+0x26)!=1056 ||
+           psx_mod_read_half(shadow+0x28)!=512 || psx_mod_read_half(shadow+0x2A)!=256)continue;
+        psx_mod_write_half(shadow+0x24,psx_mod_read_half(CAMERA+0x24));
+        psx_mod_write_half(shadow+0x2A,psx_mod_read_half(CAMERA+0x2A));
+        psx_mod_counter_add("mmx4.coop.split-sigma-drop-releases",1);
+    }
+}
 void mmx4_coop_split_dragoon_camera_release(uint32_t actor) {
     if(!available() || !psx_mod_read_word(state) ||
        psx_mod_read_byte(MMX4_PLAY+12)!=12 || psx_mod_read_byte(MMX4_PLAY+13) ||

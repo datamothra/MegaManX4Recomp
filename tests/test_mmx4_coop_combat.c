@@ -1296,14 +1296,15 @@ static uint32_t double_tick(void) {
     return hit.gpr[2];
 }
 static void double_counterpart_damage(void) {
-    for(unsigned spin=0;spin<2;++spin)
+    for(unsigned spin=0;spin<3;++spin)
     for(unsigned zero=0;zero<2;++zero)for(unsigned survivor=0;survivor<2;++survivor) {
         double_setup(zero);if(survivor)alive[zero^1u]=0;
-        attack_type[zero]=(uint8_t)(spin?34:26);
+        unsigned type=spin==2?24u:spin?34u:26u;
+        attack_type[zero]=(uint8_t)type;
         uint8_t original[88];memcpy(original,address_ptr(DOUBLE_TABLE),sizeof original);
-        CHECK(double_tick()==(spin?35u:27u) && psx_mod_read_byte(DOUBLE_ENEMY+0x5C)==46);
+        CHECK(double_tick()==type+1u && psx_mod_read_byte(DOUBLE_ENEMY+0x5C)==46);
         CHECK(psx_mod_read_byte(DOUBLE_ENEMY+0x63)==0 && consumed==1);
-        CHECK((zero?second[0xBD]:psx_mod_read_byte(MMX4_PLAYER+0xBD))==1);
+        CHECK((zero?second[0xBD]:psx_mod_read_byte(MMX4_PLAYER+0xBD))==(type>=26));
         CHECK(psx_mod_read_word(DOUBLE_ENEMY+0x58)==DOUBLE_COOLDOWN);
         CHECK(psx_mod_read_byte(DOUBLE_ENEMY+0x8B)==64);
         /* A fresh slash during native invulnerability is still deflected. */
@@ -1314,7 +1315,7 @@ static void double_counterpart_damage(void) {
         for(unsigned i=0;i<63;++i)CHECK(!double_tick());
         CHECK(psx_mod_read_word(DOUBLE_ENEMY+0x58)==DOUBLE_TABLE);
         attack_present[zero]=1;++attack_token[zero];
-        CHECK(double_tick()==(spin?35u:27u) && psx_mod_read_byte(DOUBLE_ENEMY+0x5C)==44 && consumed==2);
+        CHECK(double_tick()==type+1u && psx_mod_read_byte(DOUBLE_ENEMY+0x5C)==44 && consumed==2);
         /* Repeated persistent attack tokens are rejected before admission. */
         psx_mod_write_word(DOUBLE_ENEMY+0x58,DOUBLE_TABLE);
         CHECK(!double_tick() && psx_mod_read_byte(DOUBLE_ENEMY+0x5C)==44 && consumed==2);
@@ -1323,7 +1324,7 @@ static void double_counterpart_damage(void) {
     }
     for(unsigned type=24;type<=36;++type) {
         double_setup(1);attack_type[1]=(uint8_t)type;
-        uint32_t result=double_tick();unsigned amount=type==25?3:type>=26 && type<=31?2:type==32?1:type==34?2:0;
+        uint32_t result=double_tick();unsigned amount=type==25?3:type>=26 && type<=31?2:type==32?1:(type==24 || type==34)?2:0;
         CHECK(result==(amount?type+1u:0x7Fu));
         CHECK(psx_mod_read_byte(DOUBLE_ENEMY+0x5C)==48-amount);
     }

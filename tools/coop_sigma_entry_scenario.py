@@ -15,10 +15,10 @@ import struct
 def sigma_entry(s):
     r = s.r
     cases = []
-    for name in getattr(s, 'sigma_entry_cases', ('p2-survivor', 'p1-survivor', 'both')):
+    for name in getattr(s, 'sigma_entry_cases', ('p2-survivor', 'p1-survivor', 'both', 'both-p2')):
         prefix = 'sigma-entry-' + name
         dead = 0 if name == 'p2-survivor' else 1 if name == 'p1-survivor' else None
-        leader = 1 if dead == 0 else 0
+        leader = 1 if dead == 0 or name == 'both-p2' else 0
         live = (leader,) if dead is not None else (0, 1)
         # A fresh native level load retires the preceding scene and deaths.
         r.fixture(5, 3)

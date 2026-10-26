@@ -866,6 +866,54 @@ static void storm_backgrounds(CPUState *cpu) {
     psx_mod_write_byte(actor+4,2);invoke(cpu,0x800DA298u);
     CHECK(mmx4_coop_split_digest(2166136261u)==digest);
 }
+static void sigma_drop_release(CPUState *cpu) {
+    (void)cpu;
+    const uint32_t actor=0x8013BED0u;
+    for(unsigned test=0;test<20;++test) {
+        script_owner=-1;split=ready=1;local_scope=projected=actor_context=0;
+        psx_mod_write_byte(MMX4_PLAY,6);psx_mod_write_byte(MMX4_PLAY+1,0);
+        psx_mod_write_byte(MMX4_PLAY+12,12);psx_mod_write_byte(MMX4_PLAY+13,1);
+        for(unsigned i=0;i<0xFC;++i)psx_mod_write_byte(CAMERA+i,(uint8_t)(i+17));
+        psx_mod_write_half(CAMERA+0x24,1088);psx_mod_write_half(CAMERA+0x26,1056);
+        psx_mod_write_half(CAMERA+0x28,512);psx_mod_write_half(CAMERA+0x2A,256);
+        mmx4_coop_split_reset();mmx4_coop_split_camera_prepare(0);
+        psx_mod_write_byte(actor,1);psx_mod_write_byte(actor+1,68);
+        psx_mod_write_byte(actor+4,2);psx_mod_write_byte(actor+5,4);
+        psx_mod_write_half(CAMERA+0x24,1728);psx_mod_write_half(CAMERA+0x2A,512);
+        if(test==1)projected=actor_context=1;
+        if(test==2)local_scope=1;
+        if(test==3)split=0;
+        if(test==4)ready=0;
+        if(test==5)psx_mod_write_byte(MMX4_PLAY+12,11);
+        if(test==6)psx_mod_write_byte(MMX4_PLAY+13,0);
+        if(test==7)psx_mod_write_byte(actor+1,65);
+        if(test==8)psx_mod_write_byte(actor+4,1);
+        if(test==9)psx_mod_write_byte(actor+5,3);
+        if(test==10)psx_mod_write_byte(actor,0);
+        if(test==11)psx_mod_write_half(CAMERA+0x24,1729);
+        if(test==12)psx_mod_write_half(CAMERA+0x26,1057);
+        if(test==13)psx_mod_write_half(CAMERA+0x28,513);
+        if(test==14)psx_mod_write_half(CAMERA+0x2A,511);
+        if(test==15)psx_mod_write_half(saved_camera(1,0)+0x26,0);
+        if(test==16)projected=1;
+        if(test==18)psx_mod_write_word(0x801F0000u,0);
+        if(test==19)psx_mod_write_half(saved_camera(0,0)+0x24,4096);
+        uint8_t before[2][0xFC],canonical[0xFC];
+        for(unsigned seat=0;seat<2;++seat)for(unsigned i=0;i<0xFC;++i)
+            before[seat][i]=psx_mod_read_byte(saved_camera(seat,0)+i);
+        for(unsigned i=0;i<0xFC;++i)canonical[i]=psx_mod_read_byte(CAMERA+i);
+        mmx4_coop_split_sigma_drop_release(actor+(test==17));
+        for(unsigned seat=0;seat<2;++seat)for(unsigned i=0;i<0xFC;++i) {
+            unsigned admitted=test<2 || (test==15 && !seat) || (test==19 && seat);
+            unsigned expected=before[seat][i];
+            if(admitted && (i==0x24 || i==0x25 || i==0x2A || i==0x2B))expected=canonical[i];
+            CHECK(psx_mod_read_byte(saved_camera(seat,0)+i)==expected);
+        }
+        for(unsigned i=0;i<0xFC;++i)CHECK(psx_mod_read_byte(CAMERA+i)==canonical[i]);
+        CHECK(mmx4_coop_split_snapshot_ready());
+    }
+    split=ready=1;local_scope=projected=actor_context=0;
+}
 static void dragoon_camera_release(CPUState *cpu) {
     (void)cpu;
     const uint32_t actor=0x8013BED0u;
@@ -2210,6 +2258,7 @@ int main(void) {
     CHECK(mmx4_coop_split_snapshot_ready());
     destructible_camera_unlocks(&cpu);
     dragoon_camera_release(&cpu);
+    sigma_drop_release(&cpu);
     owl_midboss_unlocks(&cpu);
     mushroom_midboss_unlocks(&cpu);
     frost_shaft_unlocks(&cpu);
