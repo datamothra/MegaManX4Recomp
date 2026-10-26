@@ -1,12 +1,65 @@
 # Co-op playtest regression queue
 
-Updated 2026-10-10. The owner says all new reports below are secondhand.
-Treat them as reports to reproduce, rather than confirmed causes or passes.
-Builds and gameplay runs are serial; two owner-authorized read-only reviews
-cover Cyber Peacock routes and save ownership. Reproduction uses hidden runs,
+Updated 2026-10-26. The original 2026-10-10 reports below were forwarded playtest reports.
+Reproduce each report before marking its cause confirmed or its fix passed.
+Gameplay scenarios run one at a time in private profiles. Reproduction uses hidden runs,
 debug stage skips, teleporting and invulnerability where useful. Existing user
 windows, settings and saves are preserved. A checkmark means the requested
 outcome has been validated, not merely that a patch compiles.
+
+## 1.0.12: independent Ride Chasers and pause Select
+
+Tracked as `beads-eio.9.266` and `beads-eio.9.267`. Fixtures prepare positions,
+inventory and damage protection; original controllers, collision, scene tasks
+and boss AI establish the outcomes below. Four Player Co-op and the X1
+character replacements stay on their separate branches.
+
+- [x] Both campaigns, either leading rider: the leader completes native
+  ejection and landing while the trailing rider remains mounted with a camera
+  more than 10,000 pixels behind. The trailing rider then completes its own
+  native exit. Both retain full health and the shared life count.
+- [x] Current-build save/load with one exit controller finished and the other
+  pending preserves their separate flags and permits both native landings.
+- [x] Eight dash cases cover both riders in both bike sections and campaigns.
+  The neutral rider stays at six pixels per simulation tick. A dash retains
+  its native independent world/camera advance; riders can choose different
+  positions.
+- [x] Paired bike exit through actual Jet boss admission in both campaigns:
+  both land, move by controller input, cross the door, finish the timed
+  WARNING/introduction and regain control while the live boss moves.
+- [x] Both-player door policy: either leader, with the partner crossing
+  immediately or waiting outside, passes in both campaigns with both healthy
+  and controllable inside the boss room.
+- [x] Default Either-player door policy with a still-mounted distant rider:
+  return both heroes on foot through the original scene, with unchanged
+  health/lives and restored controller movement, for either leader in both
+  campaigns. The passenger departs from its distant route at X3765..3869;
+  admission does not wait for that rider to finish the bike route. Native
+  source-bike cleanup uses the existing floor-validated foot arrival.
+- [x] Magma Dragoon's upper foot route with either lower-route Armor rider
+  passes from a fresh boot, including the boss scene, passenger return and
+  controller movement. Falling below the actual lower boundary remains lethal.
+  A sequential run after the survivor-menu scenario reloaded an unrelated
+  stage; that fixture-contaminated result is retained separately.
+- [x] Select from either player's pause menu in both campaigns: presented
+  frame rings retain black through the handoff into the original blue
+  Continue/Quit frontend. The pause image does not reappear. Returning restores
+  the correct independent X/Zero panels. Private-pass verification reports no
+  mismatches, VRAM leaks, aborts or watchdogs.
+- [x] Native independent-menu controls, tank consumption, selected weapon
+  use, paused save/load, modal ownership and surviving-P2 control pass in both
+  campaigns.
+
+The timed native scene checks wait for actual completion, rather than assuming
+a fixed wall-clock delay supplies enough simulation ticks in instrumented
+builds. Automated runs hold neutral virtual pads between button pulses to keep
+physical controllers from influencing private QA processes.
+The distant-rider door probes fast-forward the original scene sequence and
+verify restored movement at normal pacing; they do not qualify performance.
+
+These checks cover the listed routes and handoffs. Full-campaign and cross-OS
+netplay coverage, Jet boss performance and the Frost Walrus refight camera
+report remain separate work.
 
 ## Previously validated and shipped in playtest 2
 

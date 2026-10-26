@@ -76,7 +76,7 @@ static unsigned projected;
 static unsigned camera_call;
 static unsigned camera_update_call;
 static unsigned split_views;
-static unsigned local_split,local_aspect_set;
+static unsigned local_split,local_aspect_set,local_shared_menu;
 static uint32_t fixture_sequence;
 static unsigned fixture_invulnerable;
 #ifdef MMX4_COOP_NETPLAY_DEBUG
@@ -591,17 +591,28 @@ static void second_tick(CPUState *cpu,uint32_t address) {
          * the upper Dragoon route can lift P1's floor above a safe P2 rider.
          * Run the one native vehicle update with its rider's actual bounds;
          * camera-area scripts and the on-foot controller keep their scopes. */
-        int armor_camera=own_camera && second.vehicle[0] && second.vehicle[1]==1 &&
+        int vehicle_camera=own_camera && second.vehicle[0] && second.vehicle[1]<=1 &&
             second.body[0xC5];
+        int chaser_exit=vehicle_camera && !second.vehicle[1];
         uint8_t vehicle_limits[3][16];
-        if(armor_camera)for(unsigned layer=0;layer<3;++layer) {
+        uint8_t vehicle_exit[3];
+        if(vehicle_camera)for(unsigned layer=0;layer<3;++layer) {
             uint32_t limits=0x801419B0u+layer*0x54u+0x1Cu;
             capture(limits,vehicle_limits[layer],16);
             project(limits,camera_view+layer*0x54u+0x1Cu,16);
+            /* Marine's native Chaser reads +51 to start dismounting. A
+             * leading partner's exit must not eject this rider early. */
+            if(chaser_exit) {
+                uint32_t exit_flag=0x801419B0u+layer*0x54u+0x51u;
+                vehicle_exit[layer]=psx_mod_read_byte(exit_flag);
+                psx_mod_write_byte(exit_flag,camera_view[layer*0x54u+0x51u]);
+            }
         }
         guest(cpu,0x80021C14,0,0);
-        if(armor_camera)for(unsigned layer=0;layer<3;++layer)
+        if(vehicle_camera)for(unsigned layer=0;layer<3;++layer) {
             project(0x801419B0u+layer*0x54u+0x1Cu,vehicle_limits[layer],16);
+            if(chaser_exit)psx_mod_write_byte(0x801419B0u+layer*0x54u+0x51u,vehicle_exit[layer]);
+        }
         guest(cpu,0x800311EC,0,0);guest(cpu,0x80021340,0,0);
         mmx4_coop_lifecycle_surface(cpu);
         guest(cpu,0x8002C614,PLAYER,0);
@@ -1534,9 +1545,25 @@ static int present_local_view(CPUState *cpu,uint32_t address) {
     unsigned paired=mmx4_coop_lifecycle_paired_door();
     int menu=mmx4_coop_lifecycle_personal_menus() &&
         psx_mod_read_byte(PLAY)==6 && psx_mod_read_byte(PLAY+1)==2;
+    /* Continue/Quit initializes inside the personal menu's native call. */
+    int shared_menu=mmx4_coop_lifecycle_shared_menu();
     int paused_world=mmx4_coop_lifecycle_paused_world();
     int story=mmx4_coop_lifecycle_script_owner()>=0 && !paired;
     int local_menu=menu && !psx_mod_netplay_is_active();
+    if(!local_view_call && !projected && !psx_mod_local_view_scope() &&
+       !psx_mod_netplay_is_active()) {
+        if(shared_menu && !local_shared_menu) {
+            /* Retire the private pause pair at the shared frontend boundary,
+             * including nested presents while its assets initialize. A pair
+             * may still be cycle-fresh after the fade has reached black;
+             * exposing it again flashes the unfaded pause screen. Restore
+             * local Split immediately so the native frontend keeps its usual
+             * two panes, without redrawing its static backdrop as a stage. */
+            psx_mod_set_local_pair_presentation(0);
+            psx_mod_set_local_pair_presentation(local_split!=0);
+        }
+        local_shared_menu=(unsigned)shared_menu;
+    }
     if(!local_split && !psx_mod_netplay_is_active())
         psx_mod_set_local_pair_presentation(local_menu);
     if(local_split && !local_aspect_set)
@@ -1752,7 +1779,7 @@ static void activate(void) {
     mmx4_cheats_configure_coop((int)ultimate_armor_x,(int)black_zero);
     x_variant=mmx4_cheats_character_enabled(0)!=0;
     local_split=!psx_mod_netplay_is_active() && !strcmp(local_cameras,"split");
-    local_aspect_set=0;
+    local_aspect_set=local_shared_menu=0;
     if(local_split)(void)psx_mod_set_fixed_display_aspect(4,3);
     /* The selected layout belongs to the session, including menus, movies
      * and shared story frames. The presenter duplicates the canonical 4:3

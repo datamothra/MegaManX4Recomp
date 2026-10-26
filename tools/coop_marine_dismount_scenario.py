@@ -15,7 +15,7 @@ def marine_dismount(s):
     s.load(5, 1, 1)
     floor = s.wait('marine-original-foot-checkpoint',
                    lambda v: all(p['grounded'] for p in v['players']), 15)
-    s.load(5, 1)
+    s.load(0, 0); s.load(5, 1)
     diagnostic = r.diagnostic()
 
     def ready(_):
@@ -33,11 +33,17 @@ def marine_dismount(s):
     # The Chaser consumes current-minus-previous camera X. Its current left
     # clip also advances toward authored target16384. Prepare those positions
     # together while paused, leaving the target and native exit flag intact.
-    for offset in (8, 0x14):
-        for byte in range(4):
-            r.write(0x801419b0 + offset + byte, ((16300 << 16) >> (8*byte)) & 255)
-    for byte in range(2):
-        r.write(0x801419ce + byte, (16300 >> (8*byte)) & 255)
+    split = next((c['count'] for c in r.request('mod_counters')['counters']
+                  if c['name'] == 'mmx4.coop.split-state'), 0)
+    cameras = [0x801419b0]
+    if split:
+        cameras.extend(split + 16 + seat * 0xfc for seat in (0, 1))
+    for camera in cameras:
+        for offset in (8, 0x14):
+            for byte in range(4):
+                r.write(camera + offset + byte, ((16300 << 16) >> (8*byte)) & 255)
+        for byte in range(2):
+            r.write(camera + 0x1e + byte, (16300 >> (8*byte)) & 255)
     assert not r.read(0x80141a01, 1)[0], 'Setup skipped the native exit trigger'
     s.sample('marine-before-native-exit', True)
     r.release(); time.sleep(.5)
@@ -80,13 +86,20 @@ def marine_dismount(s):
     assert landed['lives'] == floor['lives'], 'Dismount consumed a shared life'
     for seat in (0, 1):
         r.input(0xffdf, seat)
-    time.sleep(.4); r.release()
-    controlled = s.sample('marine-controls-restored', True)
-    assert all(a['x'] > b['x'] + 20 and a['hp'] == 32
-               for a, b in zip(controlled['players'], landed['players']))
+    try:
+        # Wait for real controller movement, rather than assuming a fixed
+        # wall-clock delay contains enough native simulation ticks.
+        controlled = s.wait('marine-controls-restored', lambda v: all(
+            a['x'] > b['x'] + 20 and a['hp'] == 32
+            for a, b in zip(v['players'], landed['players'])), 10)
+    finally:
+        r.release()
+    s.sample('marine-controls-restored', True)
     approach = []
     try:
-        deadline = time.monotonic() + 40
+        # The native WARNING controller must run its complete timed sequence.
+        # Instrumented builds can advance fewer than 300 native frames in 40s.
+        deadline = time.monotonic() + 120
         while time.monotonic() < deadline:
             row = s.sample('marine-original-boss-admission')
             bosses = [e for e in s.enemies() if e['type'] == 56]

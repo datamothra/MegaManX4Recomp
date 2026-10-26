@@ -103,6 +103,7 @@ uint16_t mmx4_coop_input(unsigned seat);
 void mmx4_coop_menu_assets(CPUState *cpu,unsigned seat);
 /* Independent native menus share pause/resume; healing only blocks exiting. */
 int mmx4_coop_lifecycle_personal_menus(void);
+int mmx4_coop_lifecycle_shared_menu(void);
 int mmx4_coop_lifecycle_resuming_world(void);
 int mmx4_coop_lifecycle_paused_world(void);
 unsigned mmx4_coop_lifecycle_menu_fade(uint32_t buffer);

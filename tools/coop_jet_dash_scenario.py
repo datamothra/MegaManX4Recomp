@@ -17,7 +17,7 @@ def jet_dash(s):
             if not section:
                 s.jet_intro()
             else:
-                s.load(5, 1)
+                s.load(0, 0); s.load(5, 1)
             diagnostic = r.diagnostic()
 
             def read():

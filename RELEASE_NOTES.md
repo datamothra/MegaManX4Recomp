@@ -1,4 +1,19 @@
-# Mega Man X4 Recompiled - 1.0.11 Stable Public Beta
+# Mega Man X4 Recompiled - 1.0.12 Stable Public Beta
+
+- Keep each Ride Chaser's scrolling and exit independent in Split. Reaching the end no longer copies the leading rider's camera or forces the trailing rider to dismount early.
+- Return a still-mounted partner on foot when the leading rider enters Jet Stingray's boss room, avoiding a fall below the destination floor.
+- Remove the pause-menu flash when Select opens Continue/Quit, preserving its native background and fade.
+
+Diagnostic recording remains optional and **off by default**. All netplay
+players must update. Native memory-card saves carry forward. Public packages
+require the original, unmodified USA disc and omit CD Speed, Fast Loading
+and developer cheats. Four Player Co-op remains a separate prerelease.
+
+Jet boss performance and the earlier Frost Walrus refight camera report
+remain open. These fixes do not establish full-campaign or cross-OS netplay
+coverage. See [native regression evidence and limits](docs/COOP_PLAYTEST_REGRESSIONS.md).
+
+## Previous v1.0.11 Stable Public Beta
 
 - Fixed Zero's first standing saber slash failing to damage Double.
 - Fixed an early drop into Sigma stage 2's lower route killing the leading player before the camera reached the lower room. Real pit deaths remain active.

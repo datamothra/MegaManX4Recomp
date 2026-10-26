@@ -777,7 +777,26 @@ static void warp_begin(CPUState *cpu) {
     initial_arrival=direct_initial_spawn=0;
     unsigned seat=warp_owner^1u;
     mmx4_coop_armor_dismount(cpu,seat);
+    unsigned owner_mounted=warp_owner?mmx4_coop_second_body()[0xC5]:
+        psx_mod_read_byte(PLAYER+0xC5);
     if(seat)mmx4_coop_enter_second();
+    if(psx_mod_read_byte(PLAY+12)==5 && psx_mod_read_byte(PLAY+13)==1 &&
+       !owner_mounted && psx_mod_read_byte(MMX4_VEHICLE) &&
+       !psx_mod_read_byte(MMX4_VEHICLE+1)) {
+        /* A foot entrant can reach Marine's boss door while the passenger
+         * is still riding elsewhere. A transported bike retains its rider's
+         * vertical offset and can place it below the destination floor.
+         * Retire that source Chaser with its native destructor, release its
+         * personal pose, then use the ordinary foot departure/arrival and
+         * validated character box instead of carrying the bike into the room. */
+        psx_mod_write_byte(PLAYER+0xC5,0);
+        uint8_t lock=psx_mod_read_byte(PLAY+0x1C);
+        unsigned guard=command_guard;command_guard=1;
+        mmx4_coop_call(cpu,0x80036B18u,PLAYER,0);
+        command_guard=guard;psx_mod_write_byte(PLAY+0x1C,lock);
+        mmx4_coop_call(cpu,0x8003BAE8u,MMX4_VEHICLE,0);
+        psx_mod_counter_add("mmx4.coop.chaser-foot-transports",1);
+    }
     warp_active=psx_mod_read_byte(PLAYER);warp_visible=psx_mod_read_byte(PLAYER+3);
     /* Unoccupied Ride Armor belongs to its world location, not a passenger.
      * Chasers retain their existing stage-specific transport behavior. */
@@ -1388,7 +1407,7 @@ unsigned mmx4_coop_lifecycle_menu_fade(uint32_t buffer) {
     unsigned index=buffer==0x80166CB0u;
     return psx_mod_read_byte(0x80169D7Cu+index*16u);
 }
-int mmx4_coop_lifecycle_personal_menus(void) {
+int mmx4_coop_lifecycle_shared_menu(void) {
     /* Native campaign Options/Quit own a separate shared frontend, including
      * their confirmation pages. Present that frontend once until it returns. */
     const uint8_t *native=personal_menu[0].native;
@@ -1401,8 +1420,12 @@ int mmx4_coop_lifecycle_personal_menus(void) {
         major=psx_mod_read_byte(MENU+4);minor=psx_mod_read_byte(MENU+5);
         quit=psx_mod_read_byte(MENU+6);
     }
-    int modal=major==1 && (minor==5 || (minor==6 && quit==2));
-    return personal_active && personal_initialized && menu_active && !modal &&
+    return personal_active && personal_initialized && menu_active &&
+        major==1 && (minor==5 || (minor==6 && quit==2));
+}
+int mmx4_coop_lifecycle_personal_menus(void) {
+    return personal_active && personal_initialized && menu_active &&
+        !mmx4_coop_lifecycle_shared_menu() &&
         !mmx4_coop_lifecycle_resuming_world();
 }
 int mmx4_coop_lifecycle_draw_menu(CPUState *cpu,unsigned seat) {
@@ -2548,7 +2571,20 @@ static int script_command(CPUState *cpu,uint32_t address) {
        psx_mod_read_byte(MMX4_VEHICLE) && !psx_mod_read_byte(MMX4_VEHICLE+1) &&
        ((address==0x80036AE4u && cpu->gpr[31]==0x8003BA84u &&
          cpu->gpr[4]==0x17u && cpu->gpr[5]==0x40u) ||
-        (address==0x80036B18u && cpu->gpr[31]==0x8003BAC4u)))return 0;
+        (address==0x80036B18u && cpu->gpr[31]==0x8003BAC4u))) {
+        if(!mmx4_coop_split_views())return 0;
+        /* The native pose also changes the global world lock. In Split
+         * that makes camera publication copy the exiting rider's whole
+         * camera to the trailing rider, including the end-of-ride flag.
+         * Keep the native personal pose/lock, preserving the world's lock
+         * on both request and release (another real scene may own it). */
+        uint8_t lock=psx_mod_read_byte(PLAY+0x1C);
+        command_guard=1;
+        uint32_t result=mmx4_coop_call(cpu,address,cpu->gpr[4],cpu->gpr[5]);
+        command_guard=0;
+        psx_mod_write_byte(PLAY+0x1C,lock);
+        return mmx4_coop_finish(cpu,result);
+    }
     /* Owl's upper entry area8010AC70 sets minX2240; the adjacent rear area
      * 8010AC7C releases it to0 for backtracking. A trailing hero can occupy
      * that release after the leader crosses the entry, then warp past the
