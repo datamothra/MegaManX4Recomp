@@ -66,9 +66,12 @@ void mmx4_coop_split_dragoon_camera_release(uint32_t actor);
 int mmx4_coop_split_scene_camera_begin(unsigned owner,uint8_t canonical[0xFC]);
 void mmx4_coop_split_commit_scene_camera(unsigned owner);
 void mmx4_coop_split_door_camera_bounds(unsigned seats,const uint16_t bounds[4]);
+void mmx4_coop_lifecycle_expand_door_floor(uint16_t maximum_y);
 void mmx4_coop_split_scene_camera_end(unsigned owner,const uint8_t canonical[0xFC],int committed);
 void mmx4_coop_split_actors(Mmx4CoopViewActor actors[2]);
 int mmx4_coop_split_camera_copy(unsigned seat,uint8_t layers[0xFC]);
+/* Retain native Ride Chaser acceleration in its owning saved camera. */
+void mmx4_coop_split_camera_scroll(unsigned seat,const uint8_t speed[3]);
 int mmx4_coop_split_sprite_outside(uint32_t actor);
 int mmx4_coop_render_rider_armor(CPUState *cpu,uint32_t address);
 void mmx4_coop_split_project_intro_boss(void);

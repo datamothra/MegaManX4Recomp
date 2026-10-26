@@ -201,3 +201,55 @@ passenger return and actual movement by each seat. All four cases pass with
 minimum32HP per hero. The previous distant-partner regression also passes;
 Windows title checks pass39/39. These are bounded admission checks, not a full
 opening-stage or four-player qualification.
+
+## Marine Base acceleration and boss door, October 25
+
+`beads-eio.9.252` covers a partner's Ride Chaser dash changing the other
+player's speed in both sections. Native3C148/3C430/3C68C write camera+47;
+the additional player pass now retains that speed in its own saved view and
+restores the canonical speed. `jet_dash` passes both sections, either dashing
+seat and both campaigns: every neutral partner update remains6px while the
+actual dashing bike exceeds11px/update.
+
+`beads-eio.9.253` covers the partner dying at the boss door. Native camera
+area17008..17024 releases the lower floor, but an overlapping Both-door
+contact could restore the old upper-room bounds. Retain the native expansion
+in the existing serialized admission bounds and publish it to both admitted
+views. The native bottom test uses that authored destination while the camera
+eases; it still kills below the destination room. `jet_door` passes either
+leader, entering together or waiting outside, in both campaigns: eight native
+admissions, minimum32HP per hero, no life consumed, original48HP boss and
+independent movement after the scene. The same runs pass the four renewed
+opening-admission cases and all eight independent-bike cases.
+
+The long original Jet recording was replayed only partially: it ran30minutes
+without an observed hash mismatch, then hit its wall-clock timeout. Its report
+is not a completed replay pass. Controlled original-disc scenarios establish
+the acceleration and door results above. Jet boss performance remains tracked
+separately in `beads-eio.9.254`; no performance improvement is inferred from
+these correctness checks.
+
+## Dragoon lower-route Ride Armor, October 25
+
+`beads-eio.9.256` tracks the1.0.8 lower rider/upper partner report. The native
+current build reproduces Armor402C4 writing fatal80 to the rider's health at
+800403CC while the rider remains on the safe672 platform. The additional
+player pass projected camera origins but left P1's room limits installed.
+Native21C14 dispatches the vehicle before the ordinary player/shot updates;
+project the rider's saved current/target limits only around that real vehicle
+pass, then restore the canonical limits. Native death and scene rules remain.
+
+`magma_armor_entry` passes either upper-route leader in both X/Zero campaigns.
+It boards the authored checkpoint Armor, prepares observed approach positions,
+then uses native upper jumps and lower punches. All four admissions retain
+minimum32HP per hero, initialize the original48HP Dragoon, complete native
+dismount/departure/return, preserve lives and restore both movement controls.
+Separate below-room900-position checks still trigger native rider death in
+both campaigns; this is not an invulnerability or pit-death bypass.
+
+Rejected early camera-handoff and wrongly placed projection prototypes are
+not fixes. Two overlapping QA runs reused a control port and were discarded;
+the final isolated runs use18556/18557. The runner now rejects occupied ports
+before it can launch or send controls/cleanup to another test process. Full
+original162,996-input recording replay and four-player Armor admission remain
+unqualified; these are controlled original-disc checks of the reported route.

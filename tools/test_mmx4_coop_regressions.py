@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import socket
 import struct
 import subprocess
 import time
@@ -562,6 +563,18 @@ class Scenarios:
         return dict(**entered,ready_peak=ready_peak,both_native_entrances=True,
                     rider_phases=[sorted(phases) for phases in rider_phases],
                     maximum_intro_separation=maximum_separation,release_frames=release_frames)
+
+    def jet_dash(self):
+        from coop_jet_dash_scenario import jet_dash
+        return jet_dash(self)
+
+    def jet_door(self):
+        from coop_jet_door_scenario import jet_door
+        return jet_door(self)
+
+    def magma_armor_entry(self):
+        from coop_magma_armor_scenario import magma_armor_entry
+        return magma_armor_entry(self)
 
     def jet(self):
         entrance=self.jet_intro()
@@ -2350,7 +2363,7 @@ def main():
                         default=['p2-survivor', 'p1-survivor', 'both'])
     parser.add_argument('--individual-pausing',action='store_true',help='Use the legacy one-owner menu instead of independent simultaneous menus')
     parser.add_argument('--boss-cooldowns',choices=('per_player','shared'),default='per_player')
-    parser.add_argument('--cases', nargs='+', choices=('intro_near_entry','stock_charge_hud','spider_ladder_pair','spider_ladder_survivor','magma_slope_rumble','magma_pillars','magma_quake','sigma_ladder_survivor','intro_bees','magma_giga_death','fmv_transitions','magma_distant_entry','sigma1_doors','sigma2_lasers','fortress_probe','intro_dragon_snapshot','magma_idle_resolution','mushroom_lift_crush','magma_effects_field','magma_effects','intro_dragon_views','intro_effect_corridor','intro_distant_entry','intro_structure_shake','intro_closing_shake','p2_pause_quit','p2_pause_escape','slash_midboss_entry','slash_cannon_origins','owl_cannon_origins','mushroom_midboss_exit','personal_menus','local_pair','local_canvas','jet','jet_intro','bike_probe', 'cyber','handoff_dash','section_health','weapon_cycle','dash_effects','zero_elemental','fire_weakness','initial_arrivals','stationary_arrivals','intro_arrivals','web_walljump','train_background','dialogue_native','cyber_flip_probe','cyber_flip','snow_base_survivor','frost_late_path', 'intro','intro_entry','trail_probe','post_victory_trails','open_airdash','train_visual','door_death','train_return','train_deaths','train_boss','arrival_death','combat','jet_boss',
+    parser.add_argument('--cases', nargs='+', choices=('magma_armor_entry','jet_door','jet_dash','intro_near_entry','stock_charge_hud','spider_ladder_pair','spider_ladder_survivor','magma_slope_rumble','magma_pillars','magma_quake','sigma_ladder_survivor','intro_bees','magma_giga_death','fmv_transitions','magma_distant_entry','sigma1_doors','sigma2_lasers','fortress_probe','intro_dragon_snapshot','magma_idle_resolution','mushroom_lift_crush','magma_effects_field','magma_effects','intro_dragon_views','intro_effect_corridor','intro_distant_entry','intro_structure_shake','intro_closing_shake','p2_pause_quit','p2_pause_escape','slash_midboss_entry','slash_cannon_origins','owl_cannon_origins','mushroom_midboss_exit','personal_menus','local_pair','local_canvas','jet','jet_intro','bike_probe', 'cyber','handoff_dash','section_health','weapon_cycle','dash_effects','zero_elemental','fire_weakness','initial_arrivals','stationary_arrivals','intro_arrivals','web_walljump','train_background','dialogue_native','cyber_flip_probe','cyber_flip','snow_base_survivor','frost_late_path', 'intro','intro_entry','trail_probe','post_victory_trails','open_airdash','train_visual','door_death','train_return','train_deaths','train_boss','arrival_death','combat','jet_boss',
                         'mushroom_lift_high_jump','intro_first_drop','mushroom_survivor_colors','marine_dismount','sigma_entry','spider_balance','boss_balance','story_bosses','boss_door_policy','spider_visual','cyber_missiles','spider_hole','victory','dragoon_survivor_reward','diagnostics','audio',
                         'cyber_orb','cyber_course','cyber_course_leader','cyber_indicator','cyber_moving','volcano_probe','ride_armor','volcano_entry','save_loop','second_save_loop','stage_reentry','portrait_exit','portrait_escape','reload_save','enemy_activation','x_armor','spider_capture','storm_survivor_exit','storm_team_exit','storm_exit_race','storm_midboss_exit','intro_platform_leader','teleport_fall','balance_saved_control','balance_saved_slashes','frost_shaft'), default=['jet', 'cyber', 'intro'])
     args = parser.parse_args()
@@ -2413,6 +2426,13 @@ def main():
     argv = [str(executable), '--hidden-window' if args.hidden_window else '--headless-opengl', '--no-launcher', '--debug-port', str(args.port),
             '--game', str(args.output / 'game.toml'), '--bios', str(args.bios), '--disc', str(args.disc),
             '--memcard-dir', str(args.output / 'saves')]
+    # Never attach to another QA process and feed it this run's controls.
+    # Fail before launch/cleanup can send commands to an occupied endpoint.
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as port_check:
+        try:
+            port_check.bind(('127.0.0.1', args.port))
+        except OSError as exc:
+            raise RuntimeError(f'QA debug port {args.port} is already in use') from exc
     runtime = Runtime(args.port)
     scenarios = Scenarios(runtime, args.output, args.campaign,args.victory_seat,args.clears)
     scenarios.capture_composed=args.hidden_window

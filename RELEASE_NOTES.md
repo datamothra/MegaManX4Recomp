@@ -1,4 +1,22 @@
-# Mega Man X4 Recompiled - 1.0.9 Stable Public Beta
+# Mega Man X4 Recompiled - 1.0.10 Stable Public Beta
+
+- Fixed either player triggering the opening boss introduction on the wrong hero, causing a camera pan and forced walk to the left.
+- Fixed a Ride Chaser dash accelerating the other player in either section of Jet Stingray's stage.
+- Fixed the lower boss-room floor being lost during Jet Stingray's paired door crossing, killing the entering player.
+- Fixed a lower-route Ride Armor rider being tested against the upper-route player's camera limits before Magma Dragoon's fight.
+
+Jet Stingray boss-fight performance remains under investigation. The earlier
+one-frame pause-view report also remains open. These fixes do not establish
+full-campaign or cross-OS netplay coverage.
+
+Diagnostic recording remains optional and **off by default**. Both netplay
+peers must update. Native memory-card saves carry forward. Public packages
+require the original, unmodified USA disc and omit CD Speed, Fast Loading
+and developer cheats. Four Player Co-op remains a separate prerelease.
+
+See [native regression evidence and limits](docs/COOP_PLAYTEST_REGRESSIONS.md).
+
+## Previous v1.0.9 Stable Public Beta
 
 - Keep each Split player's HUD and camera through story cutscenes and the fade into and out of pause.
 - Keep each player's own pause portrait when returning from Continue / Quit.

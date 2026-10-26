@@ -555,7 +555,7 @@ static void second_tick(CPUState *cpu,uint32_t address) {
     if(enrolled && !failed)mmx4_coop_lifecycle_tick(cpu);
     if(enrolled && !failed && mmx4_coop_lifecycle_can_tick()) {
         uint8_t input[6];capture(PAD,input,sizeof input);
-        uint8_t camera_view[0xFC],camera_origins[3][20];
+        uint8_t camera_view[0xFC],camera_origins[3][20],camera_speed[3];
         /* The authored bike entrance consumes the canonical autoscroll
          * delta at3B898. While READY locks the cameras, the saved Split shadow
          * can have equal current/previous origins; using it removes six pixels
@@ -574,15 +574,51 @@ static void second_tick(CPUState *cpu,uint32_t address) {
             capture(camera,camera_origins[layer],20);
             project(camera,camera_view+layer*0x54u+8u,20);
         }
+        int chaser_scroll=own_camera && second.vehicle[0] && !second.vehicle[1] &&
+            second.body[0xC5]==0xFF;
+        if(chaser_scroll)for(unsigned layer=0;layer<3;++layer) {
+            uint32_t speed=0x801419B0u+layer*0x54u+0x47u;
+            camera_speed[layer]=psx_mod_read_byte(speed);
+            psx_mod_write_byte(speed,camera_view[layer*0x54u+0x47u]);
+        }
         uint16_t raw=mmx4_coop_input(1);
         enter_second();
         psx_mod_write_half(PAD,raw);psx_mod_write_half(PAD+2,previous_input);
         psx_mod_write_half(PAD+4,(uint16_t)(raw&~previous_input));previous_input=raw;
-        guest(cpu,0x80035EF0,0,0);guest(cpu,0x80021C14,0,0);guest(cpu,0x800311EC,0,0);
-        guest(cpu,0x80021340,0,0);mmx4_coop_lifecycle_surface(cpu);
+        guest(cpu,0x80035EF0,0,0);
+        /* Armor402C4 clamps against current camera limits and kills an
+         * occupied Armor below that room. Origins alone are insufficient:
+         * the upper Dragoon route can lift P1's floor above a safe P2 rider.
+         * Run the one native vehicle update with its rider's actual bounds;
+         * camera-area scripts and the on-foot controller keep their scopes. */
+        int armor_camera=own_camera && second.vehicle[0] && second.vehicle[1]==1 &&
+            second.body[0xC5];
+        uint8_t vehicle_limits[3][16];
+        if(armor_camera)for(unsigned layer=0;layer<3;++layer) {
+            uint32_t limits=0x801419B0u+layer*0x54u+0x1Cu;
+            capture(limits,vehicle_limits[layer],16);
+            project(limits,camera_view+layer*0x54u+0x1Cu,16);
+        }
+        guest(cpu,0x80021C14,0,0);
+        if(armor_camera)for(unsigned layer=0;layer<3;++layer)
+            project(0x801419B0u+layer*0x54u+0x1Cu,vehicle_limits[layer],16);
+        guest(cpu,0x800311EC,0,0);guest(cpu,0x80021340,0,0);
+        mmx4_coop_lifecycle_surface(cpu);
         guest(cpu,0x8002C614,PLAYER,0);
         guest(cpu,0x80021D84,0,0);guest(cpu,0x80021CC8,0,0);
         leave_second();project(PAD,input,sizeof input);++frames;
+        if(chaser_scroll) {
+            /* Native3C148/3C430/3C68C change camera+47 during a dash.
+             * Leaving those writes canonical accelerates P1's next scroll.
+             * Keep P2's acceleration for its own native camera update only. */
+            uint8_t speed[3];
+            for(unsigned layer=0;layer<3;++layer) {
+                uint32_t address=0x801419B0u+layer*0x54u+0x47u;
+                speed[layer]=psx_mod_read_byte(address);
+                psx_mod_write_byte(address,camera_speed[layer]);
+            }
+            mmx4_coop_split_camera_scroll(1,speed);
+        }
         if(own_camera)for(unsigned layer=0;layer<3;++layer)
             project(0x801419B0u+layer*0x54u+8u,camera_origins[layer],20);
         psx_mod_counter_add("mmx4.coop.player-ticks",1);

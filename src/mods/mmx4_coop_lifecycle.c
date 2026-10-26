@@ -676,6 +676,11 @@ int mmx4_coop_lifecycle_paired_door(void) {
     return both_door_scope() && both_door.phase<=3 && script_active &&
         both_door.serial==script_serial;
 }
+void mmx4_coop_lifecycle_expand_door_floor(uint16_t maximum_y) {
+    if(mmx4_coop_lifecycle_paired_door() &&
+       (int16_t)maximum_y>(int16_t)both_door.bounds[2])
+        both_door.bounds[2]=maximum_y;
+}
 static void both_door_gate(unsigned seat,uint8_t value) {
     if(seat==(unsigned)(mmx4_coop_projected()!=0))psx_mod_write_byte(PLAYER+0xC4,value);
     else {
@@ -2231,6 +2236,17 @@ static int both_door_map(CPUState *cpu,uint32_t address) {
     }
     return mmx4_coop_finish(cpu,result);
 }
+static void both_door_fall_limit(CPUState *cpu,uint32_t address) {
+    (void)address;
+    if(!mmx4_coop_ready() || psx_mod_local_view_scope() ||
+       !mmx4_coop_lifecycle_paired_door() || cpu->gpr[4]!=0x801419B0u)return;
+    /* 27CDC loads the easing current maximum before its lethal bottom test.
+     * Both-door controls can fall toward a deeper authored floor before that
+     * limit catches up. Use the destination for this test only; preserve the
+     * native camera easing and deaths below the actual destination room. */
+    unsigned target=psx_mod_read_half(0x801419D8u);
+    if((int16_t)target>(int16_t)cpu->gpr[2])cpu->gpr[2]=target;
+}
 static void dismount_at_door(CPUState *cpu,unsigned seat,uint32_t actor) {
     if(seat)mmx4_coop_enter_second();
     unsigned touch=mmx4_coop_armor_mounted() &&
@@ -2803,6 +2819,7 @@ PSX_MOD_CONSTRUCTOR(mmx4_register_coop_lifecycle) {
     psx_mod_register_function_filter_plugin(ID,0x80036B18u,script_command);
     psx_mod_register_function_filter_plugin(ID,0x800311ECu,nonowner_controls);
     psx_mod_register_function_filter_plugin(ID,0x8002C614u,hidden_terrain);
+    psx_mod_register_instruction_plugin(ID,0x80027CE0u,0xA483000Eu,both_door_fall_limit);
     static const uint32_t capsules[]={0x800C62DCu,0x800C6B84u,0x800C6C2Cu,
         0x800C6CE4u,0x800C6EDCu};
     for(unsigned i=0;i<sizeof capsules/sizeof capsules[0];++i)
