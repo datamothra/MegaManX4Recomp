@@ -15,6 +15,17 @@ set(PSXRECOMP_V4_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/psxrecomp-v4" CACHE PATH
 # generic runtime defaults netplay off; select it before including that runtime.
 option(PSX_NETPLAY "Build X4 netplay and co-op profile support" ON)
 option(MMX4_COOP_NETPLAY_DEBUG "Development-only synchronized co-op cheats" OFF)
+# The shared single-pass batcher preserves painter order without submitting
+# every translucent world tile separately. Keep the conservative build floor
+# available through REFERENCE or an explicit -DPSX_GL_BATCH_IMPL=LLE.
+if(NOT DEFINED PSX_GL_BATCH_IMPL)
+    set(MMX4_DEFAULT_GL_BATCH "HLE")
+    if(PSX_EXECUTION_PROFILE STREQUAL "REFERENCE")
+        set(MMX4_DEFAULT_GL_BATCH "LLE")
+    endif()
+    set(PSX_GL_BATCH_IMPL "${MMX4_DEFAULT_GL_BATCH}" CACHE STRING
+        "OpenGL textured batching: LLE or HLE")
+endif()
 include("${PSXRECOMP_V4_ROOT}/runtime/runtime.cmake")
 
 # The current recompiler emits the game as split translation units. Keep the
@@ -193,6 +204,68 @@ if(BUILD_TESTING)
     add_executable(mmx4_coop_assets_test tests/test_mmx4_coop_assets.c src/mods/mmx4_coop_assets.c)
     target_include_directories(mmx4_coop_assets_test PRIVATE src/mods)
     add_test(NAME mmx4_coop_assets_test COMMAND mmx4_coop_assets_test)
+    # Exercise actual texture-bank sampling, blend order and readbacks, rather
+    # than qualifying atlas metadata alone. SDL's imported target carries its
+    # vendor dependencies (including static iconv where applicable).
+    if(PSX_SDL3 AND PSX_SDL_LIBRARIES)
+        find_package(OpenGL QUIET)
+        if(TARGET OpenGL::GL)
+            include(CheckIPOSupported)
+            check_ipo_supported(RESULT MMX4_GL_TEST_IPO LANGUAGES C)
+            if(MMX4_GL_TEST_IPO OR NOT WIN32)
+                set(MMX4_GL_TEST_SRC "${PSXRECOMP_V4_ROOT}/runtime/src")
+                foreach(MMX4_GL_TIER IN ITEMS lle hle)
+                    set(MMX4_GL_TARGET mmx4_sprite_atlas_gl_test)
+                    if(MMX4_GL_TIER STREQUAL "hle")
+                        set(MMX4_GL_TARGET mmx4_sprite_atlas_gl_hle_test)
+                    endif()
+                    add_executable(${MMX4_GL_TARGET}
+                        tests/test_mmx4_sprite_atlas_gl.c
+                        "${MMX4_GL_TEST_SRC}/gpu_sw_renderer.c"
+                        "${MMX4_GL_TEST_SRC}/frame_interpolation.c"
+                        "${MMX4_GL_TEST_SRC}/render_pass_plan.c"
+                        "${MMX4_GL_TEST_SRC}/psx_openxr.c"
+                        "${MMX4_GL_TEST_SRC}/render_thread.c"
+                        "${MMX4_GL_TEST_SRC}/present_thread.c"
+                        "${MMX4_GL_TEST_SRC}/gpu_render.c"
+                        "${MMX4_GL_TEST_SRC}/frame_gen.c")
+                    target_include_directories(${MMX4_GL_TARGET} PRIVATE
+                        "${PSXRECOMP_V4_ROOT}/runtime/include" "${MMX4_GL_TEST_SRC}"
+                        "${PSXRECOMP_V4_ROOT}/runtime/tests")
+                    target_compile_definitions(${MMX4_GL_TARGET} PRIVATE
+                        PSX_SDL3=1 PSX_NO_DEBUG_TOOLS=1 GL_SILENCE_DEPRECATION=1
+                        "PSX_GL_BATCH_HLE=$<STREQUAL:${MMX4_GL_TIER},hle>")
+                    target_link_libraries(${MMX4_GL_TARGET} PRIVATE
+                        ${PSX_SDL_LIBRARIES} OpenGL::GL)
+                    set_property(TARGET ${MMX4_GL_TARGET} PROPERTY
+                        INTERPROCEDURAL_OPTIMIZATION ${MMX4_GL_TEST_IPO})
+                    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+                        target_compile_options(${MMX4_GL_TARGET} PRIVATE
+                            -ffunction-sections -fdata-sections)
+                        if(NOT APPLE)
+                            target_link_options(${MMX4_GL_TARGET} PRIVATE -Wl,--gc-sections)
+                        endif()
+                    endif()
+                    if(NOT WIN32)
+                        target_link_libraries(${MMX4_GL_TARGET} PRIVATE m)
+                    endif()
+                    add_test(NAME ${MMX4_GL_TARGET} COMMAND ${MMX4_GL_TARGET})
+                    set_tests_properties(${MMX4_GL_TARGET} PROPERTIES
+                        SKIP_RETURN_CODE 77 RUN_SERIAL TRUE TIMEOUT 120)
+                endforeach()
+                find_package(Python3 COMPONENTS Interpreter QUIET)
+                if(Python3_Interpreter_FOUND)
+                    add_test(NAME mmx4_gl_tiers_test
+                        COMMAND "${Python3_EXECUTABLE}"
+                            "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_mmx4_gl_tiers.py"
+                            "$<TARGET_FILE:mmx4_sprite_atlas_gl_test>"
+                            "$<TARGET_FILE:mmx4_sprite_atlas_gl_hle_test>")
+                    set_tests_properties(mmx4_gl_tiers_test PROPERTIES
+                        SKIP_RETURN_CODE 77 RUN_SERIAL TRUE TIMEOUT 240)
+                endif()
+            endif()
+        endif()
+    endif()
     add_executable(mmx4_coop_audio_test tests/test_mmx4_coop_audio.c
         src/mods/mmx4_coop_audio.c src/mods/mmx4_coop_assets.c)
     target_include_directories(mmx4_coop_audio_test PRIVATE src/mods "${PSXRECOMP_V4_ROOT}/runtime/include")

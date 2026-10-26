@@ -59,6 +59,40 @@ int main(int argc,char **argv) {
         for(unsigned y=0;y<16;++y)for(unsigned x=0;x<16;++x)
             CHECK(tile_pixels[y*16+x]==(row*16+(flip&2?15-y:y))*256+col*16+(flip&1?15-x:x));
     }
+    /* Each packed cell must reproduce the former independent16px texture,
+     * including all reflections, transparent unused cells and page225.
+     * The last quad edge must remain encodable without wrapping UV256. */
+    static uint16_t atlases[9][240*240];
+    const unsigned sizes[]={1,14,15,16,17,224,225,226,255,256};
+    for(unsigned s=0;s<sizeof sizes/sizeof sizes[0];++s) {
+        unsigned tiles=sizes[s],width[9]={0},height[9]={0};
+        memset(pixels,0,sizeof pixels);
+        for(unsigned tile=0;tile<tiles;++tile)
+            for(unsigned y=0;y<16;++y)for(unsigned x=0;x<16;++x)
+                pixels[((tile/16)*16+y)*256+(tile%16)*16+x]=
+                    (uint16_t)((tile*257+x+y*17)^((x+y)&1?0x8000:0));
+        for(unsigned group=0;group<9;++group)
+            if(group==8 || group/4*225<tiles) {
+                CHECK(mmx4_coop_sprite_atlas_pixels(pixels,tiles,group,atlases[group],&width[group],&height[group]));
+                CHECK(width[group]<=240 && height[group]<=240);
+            }
+        for(unsigned tile=0;tile<256;++tile)for(unsigned flip=0;flip<4;++flip) {
+            uint16_t key=(uint16_t)((tile%16)*16|((tile/16)*16<<8)|flip),group,uv;
+            CHECK(mmx4_coop_sprite_atlas_tile(tiles,key,&group,&uv));
+            unsigned u=uv&255,v=uv>>8;
+            CHECK(group<9 && u+16<=width[group] && v+16<=height[group]);
+            mmx4_coop_sprite_tile_pixels(pixels,key,tile_pixels);
+            for(unsigned y=0;y<16;++y)for(unsigned x=0;x<16;++x)
+                CHECK(atlases[group][(v+y)*width[group]+u+x]==tile_pixels[y*16+x]);
+        }
+    }
+    {
+        uint16_t key,uv;unsigned w,h;
+        CHECK(!mmx4_coop_sprite_atlas_tile(0,0,&key,&uv));
+        CHECK(!mmx4_coop_sprite_atlas_tile(257,0,&key,&uv));
+        CHECK(!mmx4_coop_sprite_atlas_pixels(pixels,1,4,atlases[0],&w,&h));
+        CHECK(!mmx4_coop_sprite_atlas_pixels(pixels,256,9,atlases[0],&w,&h));
+    }
     unsigned char out[16];size_t n=999;
     /* Literal 0x1234, overlapping three-word backref, explicit terminator. */
     const unsigned char src[]={0,0x60,0x34,0x12,1,0x18,0,0,0,0};
