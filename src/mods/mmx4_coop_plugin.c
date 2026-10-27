@@ -3,6 +3,7 @@
  * with a second native player/controller/projectile pass over private context.
  */
 #include "mod_plugins.h"
+#include "execution_profile.h"
 #include "cpu_state.h"
 #include "sio.h"
 #include "mmx4_coop_assets.h"
@@ -1014,12 +1015,13 @@ static int define_sprite_bank(const SpriteBank *bank) {
         in+=chunk*128;row+=16;remaining-=chunk;
     }
     if(bank->tile!=UINT16_MAX) {
-        uint16_t part[256];mmx4_coop_sprite_tile_pixels(pixels,bank->tile,part);
-        return psx_mod_define_texture_bank(bank->id,16,16,part);
+        uint16_t atlas[240*240];unsigned width,height;
+        if(!mmx4_coop_sprite_atlas_pixels(pixels,bank->tiles,bank->tile,atlas,&width,&height))return 0;
+        return psx_mod_define_texture_bank(bank->id,width,height,atlas);
     }
     return psx_mod_define_texture_bank(bank->id,256,256,pixels);
 }
-static uint16_t sprite_bank(unsigned character,uint32_t table,unsigned frame,uint16_t clut,uint16_t tile) {
+static uint16_t sprite_bank(unsigned character,uint32_t table,unsigned frame,uint16_t clut,uint16_t tile,uint16_t *atlas_uv) {
     unsigned *count=psx_mod_local_view_scope()?&view_bank_count:&bank_count;
     SpriteBank *cache=psx_mod_local_view_scope()?view_banks:banks;
     CharacterAssets *a=&assets[character];uint8_t colors[32];
@@ -1031,6 +1033,8 @@ static uint16_t sprite_bank(unsigned character,uint32_t table,unsigned frame,uin
     uint32_t packed=le32(body->data+offset+frame*4),source=table+(packed&0xFFFFF);
     unsigned tiles=packed>>20;
     if(!tiles || tiles>256 || source<a->sprites || source-a->sprites>=body->size)return 0;
+    *atlas_uv=0;
+    if(tile!=UINT16_MAX && !mmx4_coop_sprite_atlas_tile(tiles,tile,&tile,atlas_uv))return 0;
     int palette_offset=mmx4_coop_character_palette_offset(clut);
     if(palette_offset>=0) {
         capture(character_palette(character)+(uint32_t)palette_offset,colors,sizeof colors);
@@ -1242,7 +1246,8 @@ static void render_actor(CPUState *cpu,uint32_t actor,uint32_t base,unsigned cha
         }else if((command&0xFC)!=0x2C) {failed=5;return;}
         else if(compressed)tile=mmx4_coop_sprite_quad_tile(q);
         uint16_t page=tile==UINT16_MAX?(uint16_t)(q[5]>>16):(uint16_t)psx_mod_read_word(mode+4);
-        uint16_t bank=compressed?sprite_bank(character,table,frame,(uint16_t)(q[3]>>16),tile):
+        uint16_t atlas_uv=0;
+        uint16_t bank=compressed?sprite_bank(character,table,frame,(uint16_t)(q[3]>>16),tile,&atlas_uv):
             ui_tile(character,page,(uint16_t)(q[3]>>16),tile,1);
         if(!bank) {
             failed=8;psx_mod_counter_add("mmx4.coop.invalid-sprite",1);
@@ -1254,6 +1259,11 @@ static void render_actor(CPUState *cpu,uint32_t actor,uint32_t base,unsigned cha
                 (unsigned)(q[3]>>16),(unsigned)page,(unsigned)tile,bank_count,ui_bank_count,
                 raw_graphics);
             return;
+        }
+        if(compressed && tile!=UINT16_MAX)for(unsigned i=0;i<4;++i) {
+            unsigned uv=q[3+i*2]&0xFFFFu;
+            q[3+i*2]=(q[3+i*2]&0xFFFF0000u)|
+                ((atlas_uv&255u)+(uv&255u))|(((atlas_uv>>8)+(uv>>8))<<8);
         }
         triangle(expanded,expanded+40,q,0,1,2,bank);triangle(expanded+40,q[0],q,2,1,3,bank);
         psx_mod_tag_world_primitive(expanded,1);psx_mod_tag_world_primitive(expanded+40,1);
@@ -1648,7 +1658,9 @@ static void snapshot_sprite_banks(Mmx4SnapshotIO *s,SpriteBank *cache,unsigned *
         bank.tiles=(uint16_t)mmx4_snapshot_integer(s,bank.tiles,2,256);
         bank.variant=(uint8_t)mmx4_snapshot_integer(s,bank.variant,1,2);
         mmx4_snapshot_bytes(s,bank.colors,sizeof bank.colors);
-        if(bank.id!=base+i || !bank.tiles)s->ok=0;
+        if(bank.id!=base+i || !bank.tiles ||
+           (bank.tile!=UINT16_MAX && (bank.tile>8 ||
+            (bank.tile!=8 && (bank.tile/4u)*225u>=bank.tiles))))s->ok=0;
         if(s->mode==MMX4_SNAPSHOT_VALIDATE && s->ok) {
             uint8_t decoded[32768];if(!decode_bank(&bank,decoded))s->ok=0;
         }
@@ -1766,6 +1778,10 @@ static void snapshot_resources_restored(void) {
 }
 static void activate(void) {
     mmx4_diagnostics_reset();
+    /* Immutable sprite/map banks can retain painter order in the shared
+     * single-pass blend batch. Mask checking and subtractive draws keep
+     * the conservative renderer path; Reference builds retain isolation. */
+    psx_mod_set_texture_bank_batching(PSX_EXECUTION_ENHANCED);
     ui_layout_ready=0;memset(ui_layout,0,sizeof ui_layout);
     char cameras[16],local_cameras[16],layout[24],ultimate[8],black[8],doors[8];
     if(!psx_mod_current_option_value("cameras",cameras,sizeof cameras))strcpy(cameras,"unified");

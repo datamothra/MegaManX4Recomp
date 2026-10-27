@@ -1,0 +1,382 @@
+{
+  "schema": 1,
+  "baseline": "v1.0.13",
+  "candidate": "1.0.14",
+  "beads": "beads-eio.9.254",
+  "status": "validated for stable 1.0.14; owner explicitly authorized promotion to master",
+  "hardware": {
+    "cpu": "AMD Ryzen 7 9800X3D",
+    "gpu": "NVIDIA RTX 3080 Ti",
+    "gl": "3.3",
+    "driver": "616.86"
+  },
+  "changes": [
+    "Forward-sampled immutable character atlases,15x15 cells,225tiles/page,UV endpoints<=240",
+    "Existing shared painter-ordered GL batching selected for Enhanced; explicit LLE and fresh Reference builds keep the conservative policy",
+    "Enhanced immutable-bank batch opt-in; subtractive and mask-check guards retained"
+  ],
+  "unchanged": [
+    "Guest CPU timing and gameplay scale2 RAM gate",
+    "Device,VBlank,CD and SPU clocks",
+    "Render-worker default",
+    "Framework and UI pins",
+    "X1 and four-player branches"
+  ],
+  "fixed_resolution": {
+    "preset": "1080p",
+    "reference_lines": 240,
+    "actual_scale": 5,
+    "internal_lines": 1200,
+    "fbo": [
+      5120,
+      2560
+    ],
+    "dynamic_resolution": false
+  },
+  "development_comparisons": [
+    {
+      "evidence": "fixed-lle-off-2-jet",
+      "passed": true,
+      "binary_sha256": "dc942f37f5935467bf1986acdb1c65bab249624d6cfadbee84a5b05308354b13",
+      "render_worker_requested": false,
+      "widescreen": false,
+      "guest_cycle_scale": 2,
+      "samples": [
+        {
+          "scene": "jet",
+          "held_attack": false,
+          "seconds": 14.52,
+          "world_hz": 24.794,
+          "vblank_hz": 24.794,
+          "effective_scale": 5,
+          "dynamic": 0,
+          "batches_per_frame": 1273.1
+        },
+        {
+          "scene": "jet",
+          "held_attack": true,
+          "seconds": 14.825,
+          "world_hz": 24.35,
+          "vblank_hz": 24.35,
+          "effective_scale": 5,
+          "dynamic": 0,
+          "batches_per_frame": 1304.6
+        }
+      ]
+    },
+    {
+      "evidence": "fixed-atlas-hle-off-2",
+      "passed": true,
+      "binary_sha256": "3d672fe409c7e0fae557698c3f5472af88d43cd8ada824c990e320afe7f4008c",
+      "render_worker_requested": false,
+      "widescreen": false,
+      "guest_cycle_scale": 2,
+      "samples": [
+        {
+          "scene": "spider",
+          "held_attack": false,
+          "seconds": 10.01,
+          "world_hz": 60.04,
+          "vblank_hz": 59.94,
+          "effective_scale": 5,
+          "dynamic": 0,
+          "batches_per_frame": 29.0
+        },
+        {
+          "scene": "spider",
+          "held_attack": true,
+          "seconds": 10.034,
+          "world_hz": 59.994,
+          "vblank_hz": 59.894,
+          "effective_scale": 5,
+          "dynamic": 0,
+          "batches_per_frame": 61.0
+        },
+        {
+          "scene": "jet",
+          "held_attack": false,
+          "seconds": 10.014,
+          "world_hz": 59.817,
+          "vblank_hz": 59.916,
+          "effective_scale": 5,
+          "dynamic": 0,
+          "batches_per_frame": 31.0
+        },
+        {
+          "scene": "jet",
+          "held_attack": true,
+          "seconds": 10.087,
+          "world_hz": 59.979,
+          "vblank_hz": 59.88,
+          "effective_scale": 5,
+          "dynamic": 0,
+          "batches_per_frame": 63.1
+        }
+      ]
+    },
+    {
+      "evidence": "fixed-atlas-hle-wide-off-2",
+      "passed": true,
+      "binary_sha256": "3d672fe409c7e0fae557698c3f5472af88d43cd8ada824c990e320afe7f4008c",
+      "render_worker_requested": false,
+      "widescreen": true,
+      "guest_cycle_scale": 2,
+      "samples": [
+        {
+          "scene": "spider",
+          "held_attack": false,
+          "seconds": 10.008,
+          "world_hz": 59.949,
+          "vblank_hz": 59.949,
+          "effective_scale": 5,
+          "dynamic": 0,
+          "batches_per_frame": 29.0
+        },
+        {
+          "scene": "spider",
+          "held_attack": true,
+          "seconds": 10.063,
+          "world_hz": 59.925,
+          "vblank_hz": 59.925,
+          "effective_scale": 5,
+          "dynamic": 0,
+          "batches_per_frame": 61.0
+        },
+        {
+          "scene": "jet",
+          "held_attack": false,
+          "seconds": 10.04,
+          "world_hz": 59.764,
+          "vblank_hz": 59.963,
+          "effective_scale": 5,
+          "dynamic": 0,
+          "batches_per_frame": 31.0
+        },
+        {
+          "scene": "jet",
+          "held_attack": true,
+          "seconds": 10.104,
+          "world_hz": 59.682,
+          "vblank_hz": 59.682,
+          "effective_scale": 5,
+          "dynamic": 0,
+          "batches_per_frame": 63.0
+        }
+      ]
+    }
+  ],
+  "native_production_comparisons": [
+    {
+      "evidence": "labels-production-qa-web-baseline",
+      "passed": true,
+      "binary_sha256": "51dd095bf803e0ef2738fb907518153d58ff7d4ecb9e46d3f3e8e457bc53558e",
+      "stage": [
+        1,
+        0
+      ],
+      "samples": [
+        {
+          "action": "idle",
+          "world_hz": 59.582,
+          "vblank_hz": 59.582,
+          "live_video": {
+            "s_dyn_on": 0,
+            "s_hr_scale": 5,
+            "s_out_scale": 5,
+            "s_rth_on": 1
+          }
+        },
+        {
+          "action": "charge",
+          "world_hz": 53.429,
+          "vblank_hz": 53.429,
+          "live_video": {
+            "s_dyn_on": 0,
+            "s_hr_scale": 5,
+            "s_out_scale": 5,
+            "s_rth_on": 1
+          }
+        },
+        {
+          "action": "repeat-fire",
+          "world_hz": 56.295,
+          "vblank_hz": 56.295,
+          "live_video": {
+            "s_dyn_on": 0,
+            "s_hr_scale": 5,
+            "s_out_scale": 5,
+            "s_rth_on": 1
+          }
+        }
+      ]
+    },
+    {
+      "evidence": "labels-production-qa-web-candidate",
+      "passed": true,
+      "binary_sha256": "6e0ceae7bafc70c50aefbb34d360663857e01fcedc2fa01bd8e493ce4e2a0526",
+      "stage": [
+        1,
+        0
+      ],
+      "samples": [
+        {
+          "action": "idle",
+          "world_hz": 59.901,
+          "vblank_hz": 60.001,
+          "live_video": {
+            "s_dyn_on": 0,
+            "s_hr_scale": 5,
+            "s_out_scale": 5,
+            "s_rth_on": 1
+          }
+        },
+        {
+          "action": "charge",
+          "world_hz": 59.975,
+          "vblank_hz": 59.975,
+          "live_video": {
+            "s_dyn_on": 0,
+            "s_hr_scale": 5,
+            "s_out_scale": 5,
+            "s_rth_on": 1
+          }
+        },
+        {
+          "action": "repeat-fire",
+          "world_hz": 59.998,
+          "vblank_hz": 59.998,
+          "live_video": {
+            "s_dyn_on": 0,
+            "s_hr_scale": 5,
+            "s_out_scale": 5,
+            "s_rth_on": 1
+          }
+        }
+      ]
+    }
+  ],
+  "production_netplay": {
+    "binary_sha256": "7a6c489815a588b51b8002615b994b9310aaca7b9c57bfb3e304265b78e8c548",
+    "performance": [
+      {
+        "seat": 0,
+        "world_hz": 59.886245327362076,
+        "net_hz": 59.986222364636475
+      },
+      {
+        "seat": 1,
+        "world_hz": 59.887105108293476,
+        "net_hz": 59.987083580928356
+      }
+    ],
+    "matching_log_crcs": 124,
+    "log_crc_ticks": 124,
+    "phases": [
+      {
+        "name": "native-stage",
+        "matching_live_ticks": 128,
+        "confirmed_through": [
+          2941,
+          2941
+        ]
+      },
+      {
+        "name": "idle",
+        "matching_live_ticks": 128,
+        "confirmed_through": [
+          3540,
+          3541
+        ]
+      },
+      {
+        "name": "independent-movement",
+        "matching_live_ticks": 128,
+        "confirmed_through": [
+          3580,
+          3581
+        ]
+      },
+      {
+        "name": "repeated-combat",
+        "matching_live_ticks": 127,
+        "confirmed_through": [
+          3699,
+          3699
+        ]
+      },
+      {
+        "name": "p2-pause-return",
+        "matching_live_ticks": 127,
+        "confirmed_through": [
+          3908,
+          3908
+        ]
+      },
+      {
+        "name": "netplay-save-policy",
+        "matching_live_ticks": 128,
+        "confirmed_through": [
+          3957,
+          3957
+        ]
+      }
+    ],
+    "states_deliberately_blocked": true
+  },
+  "local_save_load": {
+    "binary_sha256": "7a6c489815a588b51b8002615b994b9310aaca7b9c57bfb3e304265b78e8c548",
+    "passed": true,
+    "p1_pause": true,
+    "p2_pause": true,
+    "current_build_save_load": true,
+    "menu_status_address": "0x801754A4"
+  },
+  "validation": [
+    "CPU atlas equality for1,14,15,16,17,224,225,226,255,256tiles; all256indices and4reflections",
+    "Actual hidden GL: old16px banks vs atlases; transparency,all blend modes,overlap and masks; render worker and bank batching on/off",
+    "Cross-tier native,hires,wide and guest-readback equality with full-composite policy installed before drawing",
+    "Original adversarial mid-frame latch stream retained for within-tier worker replay equality",
+    "Task GPU runs covered1x/5x; committed fixture uses1x/4x to fit GL3.3 minimum4096px texture limits",
+    "Production tests use native input and read-only memory observation; cloned supplied native memory cards",
+    "Modern widescreen Web Spider and Jet held-attack captures visually inspected"
+  ],
+  "limitations": [
+    "Scene probes do not establish full-stage or full-route coverage",
+    "Web Spider waterfall/log route beyond opening remains unverified",
+    "Earlier profiles that accidentally allowed adaptive resolution are excluded",
+    "Initial cross-tier wide mismatch came from an adversarial mid-frame policy change outside the wide-center caller contract",
+    "Initial local-menu harness failures used wrong status bytes and repeated Start during transitions; superseded by corrected successful local test",
+    "Initial netplay save timeout expected a feature the stable co-op explicitly disables; corrected negative-policy test passes",
+    "Final release differs from the listed candidate runtime hashes by version/build metadata only",
+    "No claim of universal full speed on every route or hardware; owner explicitly authorized stable promotion without another playtest"
+  ],
+  "stable_release_validation": {
+    "version": "1.0.14",
+    "windows_enhanced_ctest": "42/42",
+    "windows_reference_ctest": "42/42",
+    "linux_enhanced_ctest": "37/37",
+    "gpu_checks_skipped": false,
+    "windows_exact_archive_native_coop": {
+      "passed": true,
+      "x_deltas": [
+        173.5,
+        173.5
+      ]
+    },
+    "windows_reference_native_coop": {
+      "passed": true,
+      "x_deltas": [
+        163.5,
+        163.5
+      ],
+      "batching": "LLE selected automatically in a fresh build"
+    },
+    "linux_exact_appimage": {
+      "contents_and_hashes": true,
+      "reseed_preserves_native_saves_and_settings": true,
+      "original_supported_disc_playable": true
+    },
+    "release_diff_from_candidate": "version, release documentation, validation records and aggregate GPU-test deadline/progress logging only; runtime changes qualified in the candidate remain identical",
+    "linux_initial_timeout": "Initial aggregate limit240s expired; individual GPU checks passed. Aggregate limit600s retains each child90s guard; full rerun required and recorded here."
+  }
+}

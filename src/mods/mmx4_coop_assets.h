@@ -16,4 +16,13 @@ int mmx4_coop_decode_sprite(const uint8_t *src, size_t size, uint8_t *dst,
 uint16_t mmx4_coop_sprite_quad_tile(uint32_t quad[10]);
 void mmx4_coop_sprite_tile_pixels(const uint16_t pixels[256*256],uint16_t tile,
                                   uint16_t out[16*16]);
+/* Forward-sampled immutable sprite atlases. Fifteen 16px cells per row keep
+ * every exclusive UV edge <=240, representable in native eight-bit packets.
+ * Keys0..7 select a225-tile page and its per-cell reflection;8 is transparent.
+ * The bank renderer point-samples these pixels even with world filtering. */
+int mmx4_coop_sprite_atlas_tile(unsigned tiles,uint16_t tile,
+                               uint16_t *key,uint16_t *uv);
+int mmx4_coop_sprite_atlas_pixels(const uint16_t pixels[256*256],unsigned tiles,
+                                 unsigned key,uint16_t out[240*240],
+                                 unsigned *width,unsigned *height);
 #endif

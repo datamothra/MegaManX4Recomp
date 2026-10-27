@@ -1,4 +1,5 @@
 #include "mmx4_coop_assets.h"
+#include <string.h>
 static uint16_t u16(const uint8_t *p) { return (uint16_t)(p[0]|p[1]<<8); }
 static uint32_t u32(const uint8_t *p) { return (uint32_t)u16(p)|(uint32_t)u16(p+2)<<16; }
 int mmx4_coop_character_palette_offset(uint16_t clut) {
@@ -32,6 +33,34 @@ void mmx4_coop_sprite_tile_pixels(const uint16_t pixels[256*256],uint16_t tile,
         unsigned sy=((tile>>8)&0xF0u)+((tile&2u)?15-y:y);
         out[y*16+x]=pixels[sy*256+sx];
     }
+}
+int mmx4_coop_sprite_atlas_tile(unsigned tiles,uint16_t tile,
+                               uint16_t *key,uint16_t *uv) {
+    if(!tiles || tiles>256 || !key || !uv)return 0;
+    unsigned index=((tile>>12)&15u)*16u+((tile>>4)&15u);
+    if(index>=tiles) {*key=8;*uv=0;return 1;}
+    unsigned local=index%225u;
+    *key=(uint16_t)((index/225u)*4u+(tile&3u));
+    *uv=(uint16_t)((local%15u)*16u|((local/15u)*16u<<8));
+    return 1;
+}
+int mmx4_coop_sprite_atlas_pixels(const uint16_t pixels[256*256],unsigned tiles,
+                                 unsigned key,uint16_t out[240*240],
+                                 unsigned *width,unsigned *height) {
+    if(!pixels || !out || !width || !height || !tiles || tiles>256 || key>8)return 0;
+    if(key==8) {memset(out,0,256*sizeof *out);*width=*height=16;return 1;}
+    unsigned first=(key/4u)*225u,flip=key&3u;
+    if(first>=tiles)return 0;
+    unsigned count=tiles-first;if(count>225)count=225;
+    unsigned w=(count<15?count:15)*16u,h=((count+14u)/15u)*16u;
+    memset(out,0,(size_t)w*h*sizeof *out);
+    for(unsigned i=0;i<count;++i) {
+        unsigned source=first+i,sx=(source%16u)*16u,sy=(source/16u)*16u;
+        unsigned dx=(i%15u)*16u,dy=(i/15u)*16u;
+        for(unsigned y=0;y<16;++y)for(unsigned x=0;x<16;++x)
+            out[(dy+y)*w+dx+x]=pixels[(sy+((flip&2u)?15u-y:y))*256u+sx+((flip&1u)?15u-x:x)];
+    }
+    *width=w;*height=h;return 1;
 }
 int mmx4_coop_arc_asset(const uint8_t *data,size_t size,unsigned member,Mmx4Asset *out) {
     if (!data || !out || size<2048 || u32(data+4)!=size) return 0;
