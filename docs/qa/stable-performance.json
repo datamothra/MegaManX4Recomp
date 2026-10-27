@@ -3,7 +3,7 @@
   "baseline": "v1.0.13",
   "candidate": "1.0.14",
   "beads": "beads-eio.9.254",
-  "status": "owner explicitly authorized stable promotion to master as patch 1.0.14; release qualification in progress",
+  "status": "validated for stable 1.0.14; owner explicitly authorized promotion to master",
   "hardware": {
     "cpu": "AMD Ryzen 7 9800X3D",
     "gpu": "NVIDIA RTX 3080 Ti",
@@ -349,5 +349,34 @@
     "Initial netplay save timeout expected a feature the stable co-op explicitly disables; corrected negative-policy test passes",
     "Final release differs from the listed candidate runtime hashes by version/build metadata only",
     "No claim of universal full speed on every route or hardware; owner explicitly authorized stable promotion without another playtest"
-  ]
+  ],
+  "stable_release_validation": {
+    "version": "1.0.14",
+    "windows_enhanced_ctest": "42/42",
+    "windows_reference_ctest": "42/42",
+    "linux_enhanced_ctest": "37/37",
+    "gpu_checks_skipped": false,
+    "windows_exact_archive_native_coop": {
+      "passed": true,
+      "x_deltas": [
+        173.5,
+        173.5
+      ]
+    },
+    "windows_reference_native_coop": {
+      "passed": true,
+      "x_deltas": [
+        163.5,
+        163.5
+      ],
+      "batching": "LLE selected automatically in a fresh build"
+    },
+    "linux_exact_appimage": {
+      "contents_and_hashes": true,
+      "reseed_preserves_native_saves_and_settings": true,
+      "original_supported_disc_playable": true
+    },
+    "release_diff_from_candidate": "version, release documentation, validation records and aggregate GPU-test deadline/progress logging only; runtime changes qualified in the candidate remain identical",
+    "linux_initial_timeout": "Initial aggregate limit240s expired; individual GPU checks passed. Aggregate limit600s retains each child90s guard; full rerun required and recorded here."
+  }
 }

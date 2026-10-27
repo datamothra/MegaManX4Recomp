@@ -5,11 +5,12 @@ import sys
 
 
 def run(exe, args):
+    print('GPU comparison:', exe, args or ['atlas'], flush=True)
     result = subprocess.run([exe, *args], capture_output=True, text=True,
                             timeout=90, encoding='utf-8', errors='replace')
     if result.returncode == 77:
         return None
-    print(result.stdout[-1600:], end='')
+    print(result.stdout[-1600:], end='', flush=True)
     assert result.returncode == 0, (result.returncode, result.stderr[-4000:])
     assert re.search(r'^checks=\d+ failures=0$', result.stdout, re.M), result.stdout
     values = dict(re.findall(r'^(atlas|rb|digest|hires|wide)=([0-9a-f]{16})$',

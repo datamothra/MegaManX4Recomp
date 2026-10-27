@@ -261,7 +261,10 @@ if(BUILD_TESTING)
                             "$<TARGET_FILE:mmx4_sprite_atlas_gl_test>"
                             "$<TARGET_FILE:mmx4_sprite_atlas_gl_hle_test>")
                     set_tests_properties(mmx4_gl_tiers_test PROPERTIES
-                        SKIP_RETURN_CODE 77 RUN_SERIAL TRUE TIMEOUT 240)
+                        # This aggregate runs both renderers repeatedly. The
+                        # per-process 90s guard remains; headless software GL
+                        # can need more than four minutes for the full matrix.
+                        SKIP_RETURN_CODE 77 RUN_SERIAL TRUE TIMEOUT 600)
                 endif()
             endif()
         endif()
