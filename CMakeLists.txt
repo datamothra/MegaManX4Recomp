@@ -96,6 +96,7 @@ psxrecomp_add_implementation(psx-runtime
 # cannot join under the same fixed development version.
 set(MMX4_COOP_CONTRACT_FILES
     src/mods/mmx4_x1.c src/mods/mmx4_x1.h src/mods/mmx4_x1_assets.cpp
+    src/mods/mmx4_x1_native_art.c src/mods/mmx4_x1_native_art.h
     src/mods/mmx4_x1_frames.json tools/generate_x1_frames.py
     mods/preloaded/packages/mmx4.character.x1-x/0.1.0/manifest.toml
     mods/preloaded/packages/mmx4.character.x1-zero/0.1.0/manifest.toml
@@ -202,6 +203,10 @@ if(BUILD_TESTING)
     add_executable(mmx4_x1_test tests/test_mmx4_x1.c src/mods/mmx4_x1.c)
     target_include_directories(mmx4_x1_test PRIVATE src/mods "${PSXRECOMP_V4_ROOT}/runtime/include")
     add_test(NAME mmx4_x1_test COMMAND mmx4_x1_test)
+    add_executable(mmx4_x1_native_art_test tests/test_mmx4_x1_native_art.c
+        src/mods/mmx4_x1_native_art.c src/mods/mmx4_coop_assets.c)
+    target_include_directories(mmx4_x1_native_art_test PRIVATE src/mods)
+    add_test(NAME mmx4_x1_native_art_test COMMAND mmx4_x1_native_art_test)
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/mmx4/SLUS_005.61")
         add_test(NAME mmx4_cheats_native_contract_test COMMAND mmx4_cheats_test
             "${CMAKE_CURRENT_SOURCE_DIR}/mmx4/SLUS_005.61")

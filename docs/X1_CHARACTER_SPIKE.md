@@ -66,6 +66,9 @@ air dash (`8003484C`) and double jump (`800347D0`) are blocked for these forms;
 ground dash (`80034754`) remains available. Normal, medium and full buster
 projectiles are native classes 0, 9 and 18. The private VAB/sample-bank path
 supplies X's buster effects while preserving Zero's character voice bank.
+The native projectile collision runs after the temporary X movement context
+has ended. Its buster-impact request is separately scoped to X's effects
+bank; ordinary Zero voices and pickup sounds retain their original routing.
 Iris has no original buster admission rows. X1 Zero reuses her native Zero
 reaction rows for buster hits, preserving armor exposure and cooldowns in
 solo and co-op; it keeps the original projectile identity and consumption.
@@ -100,7 +103,7 @@ current-build save/load, retaining composed captures and JSON observations.
 
 | Check | Result |
 | --- | --- |
-| Windows CTest suite | 40/40 passed |
+| Windows CTest suite | 41/41 passed, including native Zero assembly decoding and scoped buster-impact audio |
 | Solo X and solo Zero | Movement, normal/full charge, pause/resume, current-build save/load passed |
 | Both co-op campaigns/seat assignments | Ground dash, jump, air-dash suppression, buster charge, retained X4 weapon, saved armor suppression and save/load passed |
 | Buster damage in both seats | Original damage-store PC `8002DF0C` reduced real enemy HP; no damage result was written by a fixture |
@@ -125,7 +128,8 @@ shown. A successful input/health assertion alone is not a visual pass.
 | --- | --- |
 | X walk/jump/fire artwork | Atlas mappings corrected; native visual review in progress. Walk/fire, jump/fire and dash/fire have separate sequences. |
 | X wall/ladder/damage | Wall rectangles and damage pose corrected. Wall and ladder route coverage still needs native visual review. |
-| Zero without firing | The supplied run, jump, dash, wall and ladder movement art has the buster extended. Matching neutral movement art is missing; a native Zero fallback or additional matching artwork is still required. This is not marked fixed. |
+| Zero idle and ground movement | Side-facing idle uses the supplied sheet. Neutral ground start/run/stop use original-disc Zero graphics, assembly and palettes, decoded into immutable texture banks; firing returns to the supplied cannon-out artwork. These are native X4 neutral poses, not newly drawn X1 frames. Both facing directions and firing transitions have native presented-frame captures. Neutral jump, dash, wall and ladder artwork still has the cannon extended and needs further work. |
+| X arrival | Uses the native arrival graphic transition for the supplied beam/energy art, then stands upright while the original controller finishes. The animation-phase byte stays zero during arrival; using it previously held a crouched tile. Both player slots have full presented-frame arrival captures. Exact SNES teleport timing/art is not implemented. |
 | Zero damage, landing and arrival | Uses available fallback poses; the existing damage rectangles are not a qualified recoil animation. Landing uses the grounded idle/fire pose. Matching recoil, landing and full teleport sequences still need implementation and visual review. |
 | Charge cue | The incorrect green projectile-impact overlay is removed. The replacement body pulses while the native charge state is active. This is an approximation; exact SNES charge colors, effects and timing are not implemented. |
 | Projectile art | Native X4 normal/medium/full buster classes use supplied size-specific frames. Complete animated flight, muzzle and impact sequences and exact X1 Zero shot behavior are not implemented. |

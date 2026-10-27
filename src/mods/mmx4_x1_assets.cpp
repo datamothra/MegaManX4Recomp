@@ -4,6 +4,7 @@
 extern "C" {
 #include "mmx4_coop_assets.h"
 #include "mmx4_coop_internal.h"
+#include "mmx4_x1_native_art.h"
 }
 #include "mod_plugins.h"
 #include "mod_runtime.h"
@@ -24,10 +25,17 @@ struct X1Sequence {unsigned character;const char *name;unsigned first,count;};
 #include "mmx4_x1_frame_data.h"
 constexpr unsigned FrameCount=sizeof X1Frames/sizeof X1Frames[0];
 static_assert(FrameCount*2<=0x4000,"X1 banks must not overlap co-op texture banks");
+constexpr unsigned NativeFrameCount=32;
+constexpr uint16_t NativeFirstBank=FirstBank+FrameCount*2;
+static_assert(NativeFirstBank+NativeFrameCount*2<=0x4000,"Native Zero banks overlap co-op");
 std::array<DecodedTextureImage,2> images;
 std::array<std::vector<uint16_t>,FrameCount*2> pixels;
 std::array<bool,FrameCount*2> defined{};
 std::vector<uint8_t> xArchive,zeroArchive;
+Mmx4Asset nativeZeroBody{},nativeZeroAssembly{},nativeZeroColors{};
+std::array<std::vector<uint16_t>,NativeFrameCount*2> nativeZeroPixels;
+std::array<Mmx4X1NativeFrame,NativeFrameCount> nativeZeroLayout{};
+std::array<bool,NativeFrameCount*2> nativeZeroDefined{};
 uint32_t xGuest=0,arena=0;
 unsigned drawing=0;
 struct Cursor {uint32_t frame=0,used=0;};
@@ -93,18 +101,34 @@ void prepareNativeX() {
        !mmx4_coop_audio_prepare(1,zeroArchive.data(),size,0))
         throw std::runtime_error("Cannot prepare original Zero voice resources");
 }
+void prepareNativeZeroArt() {
+    if(zeroArchive.empty()) {
+        uint32_t size=0;
+        if(!psx_mod_read_disc_file("ARC/PL01_U.ARC",nullptr,0,&size) || !size || size>2*1024*1024)
+            throw std::runtime_error("Cannot read native Zero movement resources");
+        zeroArchive.resize(size);
+        if(!psx_mod_read_disc_file("ARC/PL01_U.ARC",zeroArchive.data(),size,&size))
+            throw std::runtime_error("Cannot read native Zero movement archive");
+    }
+    if(!mmx4_coop_arc_asset(zeroArchive.data(),zeroArchive.size(),2,&nativeZeroBody) ||
+       !mmx4_coop_arc_asset(zeroArchive.data(),zeroArchive.size(),9,&nativeZeroAssembly) ||
+       !mmx4_coop_arc_asset(zeroArchive.data(),zeroArchive.size(),0,&nativeZeroColors))
+        throw std::runtime_error("Native Zero movement archive rejected");
+}
 void ensureArena() {
     if(!arena)arena=psx_mod_alloc_texture_packet_memory(4*ArenaBytes,16);
     if(!arena)throw std::runtime_error("No X1 sprite packet arena");
 }
 void restore() {
-    defined.fill(false);localCursors={};drawing=0;mmx4_x1_native_reset();
+    defined.fill(false);nativeZeroDefined.fill(false);localCursors={};drawing=0;mmx4_x1_native_reset();
     installXResources();
     if(!mod_runtime_snapshot_package_active("mmx4.coop"))
         psx_mod_set_texture_bank_resolver(mmx4_x1_resolve_texture);
 }
 void reset() {
     images={};pixels={};defined.fill(false);xArchive.clear();zeroArchive.clear();xGuest=arena=0;
+    nativeZeroBody={};nativeZeroAssembly={};nativeZeroColors={};
+    nativeZeroPixels={};nativeZeroLayout={};nativeZeroDefined.fill(false);
     if(!mod_runtime_snapshot_package_active("mmx4.coop"))mmx4_coop_audio_reset();
     cursors={};localCursors={};drawing=0;mmx4_x1_native_reset();
 }
@@ -113,7 +137,7 @@ void activateX() {
     psx_mod_counter_add("mmx4.x1.x-activated",1);
 }
 void activateZero() {
-    loadImage(1,"sprites");loadImage(0,"projectiles");ensureArena();prepareNativeX();restore();
+    loadImage(1,"sprites");loadImage(0,"projectiles");ensureArena();prepareNativeX();prepareNativeZeroArt();restore();
     psx_mod_counter_add("mmx4.x1.zero-activated",1);
 }
 bool trailActor(uint32_t actor) {
@@ -141,7 +165,18 @@ unsigned pose(uint32_t actor,unsigned character) {
     unsigned action=psx_mod_read_byte(actor+5);
     bool firing=psx_mod_read_byte(actor+0x91) || psx_mod_read_byte(actor+0x92);
     if(psx_mod_read_byte(actor+4)==2)return sequence(character,"hurt",animation);
-    if(action<2 || action==20)return sequence(character,"arrive",animation);
+    if(action<2 || action==20) {
+        if(character)return sequence(character,"arrive",0);
+        /* Arrival advances native graphic47 while phase45 remains zero.
+         * Sampling phase45 held the crouched sheet tile for the entire
+         * entrance. Follow the real beam/materialization transition, then
+         * retain an upright X while native arrival control finishes. */
+        unsigned graphic=psx_mod_read_byte(actor+0x47);
+        if(graphic==126)return sequence(0,"arrive",0);
+        if(action==0 && graphic>=127 && graphic<=129)
+            return sequence(0,"arrive_energy",graphic-127);
+        return sequence(0,"idle",0);
+    }
     if(action==3 || action==4)return sequence(character,firing?"run_fire":"run",animation);
     if(action==6 || action==7 || action==8) {
         /* X4 restarts its animation phase at each ascent/descent/landing
@@ -224,6 +259,18 @@ extern "C" int mmx4_x1_x_resources(uint32_t out[4]) {
     return 1;
 }
 extern "C" int mmx4_x1_resolve_texture(uint16_t id) {
+    if(id>=NativeFirstBank && id<NativeFirstBank+NativeFrameCount*2) {
+        unsigned index=id-NativeFirstBank,frame=index%NativeFrameCount;
+        auto &decoded=nativeZeroPixels[index];
+        if(decoded.empty()) {
+            decoded.resize(128*128);
+            if(!mmx4_x1_native_frame(&nativeZeroBody,&nativeZeroAssembly,&nativeZeroColors,
+                frame,decoded.data(),&nativeZeroLayout[frame])) {decoded.clear();return 0;}
+            if(index>=NativeFrameCount)for(auto &pixel:decoded)if(pixel)pixel|=0x8000u;
+        }
+        if(!psx_mod_define_texture_bank(id,128,128,decoded.data()))return 0;
+        nativeZeroDefined[index]=true;return 1;
+    }
     if(id<FirstBank || id-FirstBank>=FrameCount*2)return 0;
     unsigned index=id-FirstBank;bool ghost=index>=FrameCount;
     const auto &frame=X1Frames[index%FrameCount];auto &im=images[frame.character];
@@ -252,10 +299,21 @@ extern "C" int mmx4_x1_render(CPUState *cpu,uint32_t actor,unsigned character) {
      * animation onto either hero. Exact SNES palette timing remains separate. */
     if(glowActor(actor))return 1;
     if(!psx_mod_read_byte(actor) || !psx_mod_read_byte(actor+3))return 1;
-    drawing=1;unsigned index=pose(actor,character);const auto &frame=X1Frames[index];
+    drawing=1;unsigned index=pose(actor,character);X1Frame frame=X1Frames[index];
     bool ghost=trailActor(actor);unsigned bankIndex=index+(ghost?FrameCount:0);
     uint16_t bank=FirstBank+uint16_t(bankIndex);
-    if(!defined[bankIndex] && !mmx4_x1_resolve_texture(bank)) {drawing=0;return 0;}
+    unsigned action=psx_mod_read_byte(actor+5),phase=psx_mod_read_byte(actor+0x45)&63u;
+    bool nativeRun=character==1 && actor==Player && psx_mod_read_byte(actor+4)==1 &&
+        !psx_mod_read_byte(actor+0x91) && !psx_mod_read_byte(actor+0x92) &&
+        action>=3 && action<=5;
+    unsigned nativeFrame=action==3?4u+(phase<3?phase:2):action==4?7u+phase%14u:5u;
+    if(nativeRun) {
+        bank=NativeFirstBank+(uint16_t)nativeFrame;
+        if(!nativeZeroDefined[nativeFrame] && !mmx4_x1_resolve_texture(bank))
+            throw std::runtime_error("Cannot reconstruct native Zero neutral run");
+        frame={1,0,0,nativeZeroLayout[nativeFrame].width,nativeZeroLayout[nativeFrame].height};
+        psx_mod_counter_add("mmx4.x1.zero-neutral-run-draws",1);
+    }else if(!defined[bankIndex] && !mmx4_x1_resolve_texture(bank)) {drawing=0;return 0;}
     unsigned buffer=psx_mod_read_word(Scratch)&1u;
     bool local=psx_mod_local_view_scope()!=0;
     auto &cursor=(local?localCursors:cursors)[buffer];
@@ -274,12 +332,20 @@ extern "C" int mmx4_x1_render(CPUState *cpu,uint32_t actor,unsigned character) {
         x-=int16_t(psx_mod_read_half(0x801419B0u+layer*0x54u+10));
         y-=int16_t(psx_mod_read_half(0x801419B0u+layer*0x54u+14));
     }
-    bool body=bodyActor(actor);x-=int(frame.w)/2;
+    bool body=bodyActor(actor);
     bool flipY=(psx_mod_read_byte(actor+0x15)&0x20u)!=0;
-    y-=body?(flipY?(character?22:21):int(frame.h)-(character?22:21)):int(frame.h)/2;
+    bool mirror=(psx_mod_read_byte(actor+0x15)&0x40u)==0;
+    if(nativeRun) {
+        mirror=!mirror;
+        const auto &layout=nativeZeroLayout[nativeFrame];
+        x+=mirror?-layout.left-int(layout.width):layout.left;
+        y+=flipY?-layout.top-int(layout.height):layout.top;
+    }else {
+        x-=int(frame.w)/2;
+        y-=body?(flipY?(character?22:21):int(frame.h)-(character?22:21)):int(frame.h)/2;
+    }
     int margin=psx_mod_widescreen_x_margin();
     if(x+int(frame.w)<-margin-128 || x>320+margin+128 || y+int(frame.h)<-128 || y>368) {drawing=0;return 1;}
-    bool mirror=(psx_mod_read_byte(actor+0x15)&0x40u)==0;
     uint32_t tint=0x00808080u;
     unsigned charge=psx_mod_read_byte(Player+0x94);
     if(body && !ghost && charge && (tick&4u)) {

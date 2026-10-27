@@ -23,6 +23,7 @@
 typedef struct { Mmx4Asset header,samples; uint32_t guest,offset,id; unsigned loaded,initialized; } AudioBank;
 static AudioBank banks[2][2];
 static unsigned sound_call,voice_call,stop_call;
+static unsigned x1_hit_call;
 static uint32_t audio_state;
 /* Derived residency belongs to one SPU boot, not to the saved simulation. */
 static uint32_t bound_epoch;
@@ -30,7 +31,7 @@ static int audio_ready(void) {
     return mmx4_coop_ready() || (audio_state && mmx4_x1_enabled(1));
 }
 static int private_context(void) {
-    return mmx4_coop_projected() || mmx4_x1_buster_context();
+    return mmx4_coop_projected() || mmx4_x1_buster_context() || x1_hit_call;
 }
 static void read_bytes(uint32_t address,uint8_t *out,unsigned n) {
     for(unsigned i=0;i<n;++i)out[i]=psx_mod_read_byte(address+i);
@@ -55,7 +56,7 @@ static void copy_header(AudioBank *bank) {
             (uint8_t)((bank->header.data[at]&0xC0u)|bank->id));
 }
 void mmx4_coop_audio_reset(void) {
-    memset(banks,0,sizeof banks);sound_call=voice_call=stop_call=0;audio_state=bound_epoch=0;
+    memset(banks,0,sizeof banks);sound_call=voice_call=stop_call=x1_hit_call=0;audio_state=bound_epoch=0;
 }
 static int bind_sample_banks(void) {
     uint32_t epoch=psx_mod_spu_sample_bank_epoch();
@@ -148,16 +149,25 @@ static int open_bank(CPUState *cpu,AudioBank *bank) {
 }
 static int character_sound(CPUState *cpu,uint32_t address) {
     unsigned group=cpu->gpr[4]&0x7Fu;
-    if(sound_call || !audio_ready() || !private_context() ||
+    /* Collision resolves after Zero's borrowed X update has returned. The
+     * native damage caller requests X's buster-impact record12 here, while
+     * the logical character is already Zero again. Zero's record12 is a
+     * different sound. Keep this caller on X's effects bank in both solo
+     * and projected co-op; actual pickups and Zero's voices stay native. */
+    int x1_hit=group==1 && (cpu->gpr[5]&255u)==12u &&
+        cpu->gpr[31]==0x8002E0C4u && mmx4_x1_enabled(1) &&
+        psx_mod_read_byte(MMX4_PLAYER+2)==1;
+    if(sound_call || !audio_ready() || (!private_context() && !x1_hit) ||
        psx_mod_local_view_scope() || psx_mod_read_byte(MMX4_PLAY)!=6 ||
        (group!=1 && group!=3))return 0;
     unsigned character=psx_mod_read_byte(MMX4_PLAYER+2);
     if(mmx4_x1_buster_context() && group==3)character=1;
+    if(x1_hit) {character=0;psx_mod_counter_add("mmx4.x1.buster-hit-sounds",1);}
     if(character>1)return 0;
     AudioBank *bank=&banks[character][group==3];if(!bank->loaded)return 0;
-    sound_call=1;
+    sound_call=1;x1_hit_call=(unsigned)x1_hit;
     if(!bind_sample_banks() || !open_bank(cpu,bank)) {
-        sound_call=0;psx_mod_counter_add("mmx4.coop.audio-bank-open-failed",1);
+        sound_call=x1_hit_call=0;psx_mod_counter_add("mmx4.coop.audio-bank-open-failed",1);
         return mmx4_coop_finish(cpu,(uint32_t)-1);
     }
     uint32_t end=SOUND_END+group*4,records=SOUND_RECORDS+group*4;
@@ -172,7 +182,7 @@ static int character_sound(CPUState *cpu,uint32_t address) {
         psx_mod_write_byte(audio_state+voice,psx_mod_read_byte(PRIORITY+voice));
     write_bytes(PRIORITY,priority,sizeof priority);
     psx_mod_write_word(end,saved_end);psx_mod_write_word(records,saved_records);
-    sound_call=0;return mmx4_coop_finish(cpu,result);
+    sound_call=x1_hit_call=0;return mmx4_coop_finish(cpu,result);
 }
 static int voice_key_on(CPUState *cpu,uint32_t address) {
     if(voice_call || !audio_ready() || psx_mod_local_view_scope())return 0;
@@ -243,6 +253,7 @@ static int character_stop(CPUState *cpu,uint32_t address) {
     if(!private_context() || (group!=1 && group!=3))return 0;
     unsigned character=psx_mod_read_byte(MMX4_PLAYER+2);
     if(mmx4_x1_buster_context() && group==3)character=1;
+    if(x1_hit_call && group==1)character=0;
     if(character>1 || !banks[character][group==3].loaded)return 0;
     uint32_t pointer=SOUND_RECORDS+group*4u,saved=psx_mod_read_word(pointer);
     psx_mod_write_word(pointer,banks[character][group==3].guest+8u);stop_call=1;

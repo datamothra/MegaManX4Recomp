@@ -9,6 +9,7 @@ static uint8_t ram[0x200000],private_ram[0x10000];
 static uint32_t allocated,registered,opened,native_sound,pending_bank;
 static unsigned projected=1,ready=1,local_view;
 static unsigned x1_zero,x1_context;
+static int expected_effect_character=-1;
 int mmx4_x1_enabled(unsigned character) {return character==1 && x1_zero;}
 int mmx4_x1_buster_context(void) {return x1_context;}
 static unsigned transfer_busy;
@@ -81,6 +82,7 @@ uint32_t mmx4_coop_call(CPUState *cpu,uint32_t a,uint32_t a0,uint32_t a1) {
     CHECK(a==SOUND && !sound_filter(cpu,a));++native_sound;
     unsigned group=a0&0x7F,character=psx_mod_read_byte(MMX4_PLAYER+2);
     if(x1_context && group==3)character=1;
+    if(group==1 && expected_effect_character>=0)character=(unsigned)expected_effect_character;
     uint32_t record=psx_mod_read_word(0x80141F50u+group*4);
     CHECK((psx_mod_read_byte(record)&0xC0)==0x80);
     unsigned id=psx_mod_read_byte(record)&0x3F;
@@ -163,6 +165,20 @@ int main(void) {
     }
     x1_context=0;
     {CPUState x1={0};x1.gpr[4]=1;CHECK(!sound_filter(&x1,SOUND));}
+    /* A real buster collision happens outside the virtual-X update. Its
+     * exact original caller must choose X's effect, without rerouting a
+     * pickup, a native Zero session, or a private rendering pass. */
+    psx_mod_write_byte(MMX4_PLAYER+2,1);expected_effect_character=0;
+    {CPUState hit={0};hit.gpr[4]=1;hit.gpr[5]=12;hit.gpr[31]=0x8002E0C4u;
+     CHECK(sound_filter(&hit,SOUND) && private_bank==12);
+     CHECK(psx_mod_read_byte(MMX4_PLAYER+2)==1);
+     CHECK(psx_mod_read_word(0x80141F54u)==0x80101000u);
+     projected=1;CHECK(sound_filter(&hit,SOUND) && private_bank==12);projected=0;
+     local_view=1;CHECK(!sound_filter(&hit,SOUND));local_view=0;
+     hit.gpr[31]=0x800AFC24u;CHECK(!sound_filter(&hit,SOUND));
+     hit.gpr[31]=0x8002E0C4u;hit.gpr[5]=11;CHECK(!sound_filter(&hit,SOUND));
+     hit.gpr[5]=12;x1_zero=0;CHECK(!sound_filter(&hit,SOUND));}
+    expected_effect_character=-1;
     ready=projected=1;x1_zero=0;psx_mod_write_byte(MMX4_PLAYER+2,1);
     CPUState stop={0};stop.gpr[4]=1;stop.gpr[5]=0;
     CHECK(stop_filter(&stop,0x80015930u) && private_stops==1u<<20);
