@@ -2682,6 +2682,48 @@ static int nonowner_controls(CPUState *cpu,uint32_t address) {
             psx_mod_write_byte(PLAYER+0xC4,door);
         return mmx4_coop_finish(cpu,result);
     }
+    if(both_door_scope() && both_door.serial==script_serial && both_door.phase==1 &&
+       !psx_mod_local_view_scope() && mmx4_coop_alive(seat) &&
+       psx_mod_read_byte(PLAYER+4)==1 && !psx_mod_read_byte(PLAYER+0xC5) &&
+       !psx_mod_read_byte(PLAYER+0x67) && !psx_mod_read_byte(PLAYER+0xBC) &&
+       !psx_mod_read_byte(PLAYER+0xBD)) {
+        unsigned program=psx_mod_read_byte(PLAYER+0x17);
+        int passenger=seat!=script_owner;
+        unsigned retained=program;
+        /* A waiting hero can already be idle or in run/dash release at
+         * admission. Match native338CC's automatic walk selection; retain
+         * an incoming dash rather than its one-frame release pose. */
+        if(program==5 || program==6 || program==12)program=0x26;
+        if(program==9)program=8;
+        if(program==17)program=16;
+        if((program==8 || program==16 || program==0x26) &&
+           (passenger || psx_mod_read_byte(PLAY+0x10))) {
+            /* Preserve the incoming native run/dash clip. Neutral passenger
+             * steering still performs its original stop/physics transition,
+             * but must not replace that clip with a frozen stop/dash-end pose.
+             * PLAY+10 then skips both action dispatchers during opening.
+             * Advance only native15DC8 (cursor34/timer44..47) once here; the
+             * original body, door and free-traversal passes keep their rate. */
+            control_guard=1;
+            uint32_t cursor=psx_mod_read_word(PLAYER+0x34);
+            uint32_t animation=psx_mod_read_word(PLAYER+0x44);
+            if(passenger) {
+                psx_mod_write_half(PLAYER+0x7C,0);psx_mod_write_half(PLAYER+0x7E,0);
+                psx_mod_write_half(PLAYER+0x80,0);
+            }
+            uint32_t result=mmx4_coop_call(cpu,address,cpu->gpr[4],cpu->gpr[5]);
+            if(program!=retained)mmx4_coop_call(cpu,0x800350A4u,PLAYER,program);
+            else if(passenger) {
+                psx_mod_write_byte(PLAYER+0x17,(uint8_t)program);
+                psx_mod_write_word(PLAYER+0x34,cursor);
+                psx_mod_write_word(PLAYER+0x44,animation);
+            }
+            mmx4_coop_call(cpu,0x80015DC8u,PLAYER,0);
+            control_guard=0;
+            psx_mod_counter_add("mmx4.coop.both-door-animation-ticks",1);
+            return mmx4_coop_finish(cpu,result);
+        }
+    }
     if(seat==script_owner || !mmx4_coop_alive(seat))return 0;
     /* The scripted owner retains native auto-walk/warp. Its living partner
      * receives neutral controls until the common transition completes. */
