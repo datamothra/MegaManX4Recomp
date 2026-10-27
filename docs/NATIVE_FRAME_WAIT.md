@@ -16,5 +16,14 @@ host snapshot/guard, co-op, language and GL batch/atlas contracts. It does not
 move X4 to the distinct X6 bridge package. Optional scaled-charge batching
 stays off, with its selected value recorded in compatibility identity.
 
-This is a repository PR only: no new X4 release or quantified performance
-claim. Central evidence is tracked in `beads-x79c` and campaign `beads-2wy8.1`.
+X4 additionally declares `NATIVE_IDLE_WAIT_EXCLUDE_DEBUG_TURBO`. Forced,
+presentation-free debugger turbo retains original polling and clears detector
+training across mode changes. Normal gameplay retrains and resumes induction.
+This fixed policy is included in execution identity; ordinary fast-forward is
+unchanged. The exclusion addresses a stage-loading stall found with the
+qualified controller UI during debugger turbo; its deeper renderer cause is
+not established. Normal pacing and the polling build passed that workload.
+
+PR #84 is integrated; no new release or broad performance claim is implied.
+Central evidence is tracked in `beads-x79c`, `beads-eio.3.421` and campaign
+`beads-2wy8.1`.
