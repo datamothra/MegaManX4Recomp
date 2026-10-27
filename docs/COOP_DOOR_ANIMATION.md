@@ -1,7 +1,10 @@
 # Both-player door animation polish
 
 Local base-branch follow-up to X5 commit `3e6173c`, tracked by
-`beads-eio.9.270`. Base: stable 1.0.14, `3656e01304519732fb9736c7a0b1847f9139038a`.
+`beads-eio.9.270`. Current review branch: `review/door-animation-current`,
+based on master `79e38d84fe971cc3c186fd451913fa4ab639893f`.
+The original native qualification used stable 1.0.14,
+`3656e01304519732fb9736c7a0b1847f9139038a`.
 X1 and four-player changes remain on their separate feature branches.
 
 X4's Both mode already allows independent movement after a door opens.
@@ -67,13 +70,29 @@ available as `--cases boss_door_policy`; no duplicate stage matrix is added
 for doors using the same controller. Mounted admission, every stage-specific
 door, other hosts and LAN have not been newly qualified by this polish.
 
-Optional local human review: `owner-review/Try Door Animation.cmd` in the
-evidence directory. It boots the exact candidate to the original checkpoint,
-then pauses for P1 keyboard/P2 DualSense, with normal audio and a normal
-window. Each run uses the same private profile and preserves its cards.
-Unpause with Start/Options, move both heroes right, and use S/Circle to dash.
+Local human review: `owner-review/Try Door Animation.cmd` in the evidence
+directory. It verifies the candidate identity, boots to the original checkpoint
+and prepares a current-build paused approach for P1 keyboard/P2 DualSense,
+with normal audio and a normal window. It preserves the private profile's
+cards and uses slot9 reserved for this review. It leaves an active X1 playtest
+running and asks the owner to finish that window before starting this one.
 
-Final Windows qualification: **42/42 CTests passed**, plus all four native
+The review panel provides Walk and Dash checks, an immediate Restart approach
+button, and per-binary Pass/Fail/Deferred notes. It reads actual SIO samples
+while paused: tap keyboard Right, release, then DualSense Right to verify
+independent input ownership. Configured device IDs alone do not count as a
+passing control check. Notes remain in `owner-review/door-review-notes.json`;
+individual failures and deferred items must be read before merge.
+
+Unpause with Enter/Options, move both heroes right, and use S/Circle to dash.
+Observe native opening animations, actual closing, the boss introduction and
+independent jumps after control returns. The setup does not complete any of
+those results. Both approaches restore the same pre-door snapshot; their
+different inputs exercise walk/run versus dash without adding duplicate
+stage-mechanic cases. The owner requested approval before merging this local
+branch into master; the review setup does not publish or merge it.
+
+Original Windows qualification: **42/42 CTests passed**, plus all four native
 walk/dash routes across both campaign rosters, with damage enabled. Opening
 remained **76 updates**, matching baseline. **592 consecutive animation
 cursor/timer checks** passed across the suspended body passes, with
@@ -81,3 +100,10 @@ cursor/timer checks** passed across the suspended body passes, with
 The lock is asserted after that update's body passes; the following update is
 the first suspended body pass. The observer excludes that assertion boundary
 from its once-per-update comparisons, avoiding an extra animation tick.
+
+Current-master review rebuild: **43/43 CTests passed**, including the actual
+regenerated native-wait caller contract. The door implementation is unchanged
+from the qualified native runs above. Current-build human door checks and
+physical control ownership remain pending in the new review panel; the old
+runtime qualification is retained as historical evidence, not a claim that
+the rebuilt candidate has already received the owner's play check.
