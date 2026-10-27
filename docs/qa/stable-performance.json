@@ -1,9 +1,9 @@
 {
   "schema": 1,
   "baseline": "v1.0.13",
-  "candidate": "1.0.14-perf.1",
+  "candidate": "1.0.14",
   "beads": "beads-eio.9.254",
-  "status": "candidate awaiting owner playtest; no stable promotion",
+  "status": "owner explicitly authorized stable promotion to master as patch 1.0.14; release qualification in progress",
   "hardware": {
     "cpu": "AMD Ryzen 7 9800X3D",
     "gpu": "NVIDIA RTX 3080 Ti",
@@ -347,7 +347,7 @@
     "Initial cross-tier wide mismatch came from an adversarial mid-frame policy change outside the wide-center caller contract",
     "Initial local-menu harness failures used wrong status bytes and repeated Start during transitions; superseded by corrected successful local test",
     "Initial netplay save timeout expected a feature the stable co-op explicitly disables; corrected negative-policy test passes",
-    "Final preview differs from the listed runtime hashes by version/build metadata only",
-    "No claim of universal full speed on every route or hardware; owner gameplay/audio acceptance still pending"
+    "Final release differs from the listed candidate runtime hashes by version/build metadata only",
+    "No claim of universal full speed on every route or hardware; owner explicitly authorized stable promotion without another playtest"
   ]
 }

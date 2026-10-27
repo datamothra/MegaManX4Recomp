@@ -1,4 +1,17 @@
-# Mega Man X4 Recompiled - 1.0.13 Stable Public Beta
+# Mega Man X4 Recompiled - 1.0.14 Stable Public Beta
+
+- Reduced co-op rendering overhead with packed character textures and ordered OpenGL batching. The tested Jet Stingray boss scene improved from about 24 to 60 FPS at the same fixed internal resolution.
+- Preserved guest CPU timing, audio/device clocks and the render-worker default. This is the normal stable release, with the performance improvements enabled by default.
+
+Diagnostic recording remains optional and **off by default**. All netplay
+players must update. Native memory-card saves carry forward. Public packages
+require the original, unmodified USA disc and omit CD Speed, Fast Loading
+and developer cheats. Four Player Co-op remains a separate prerelease.
+
+See [performance measurements and validation limits](docs/qa/stable-performance.json).
+These scene measurements do not guarantee full speed on every route or PC.
+
+## Previous v1.0.13 Stable Public Beta
 
 - Fixed Player 2's camera failing to pan and lock in the corridor between Sigma stage 2's boss doors before Double or Iris. Completed paired-door crossings now commit the room limit to both independent cameras.
 
