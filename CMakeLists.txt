@@ -27,6 +27,14 @@ if(NOT DEFINED PSX_GL_BATCH_IMPL)
         "OpenGL textured batching: LLE or HLE")
 endif()
 include("${PSXRECOMP_V4_ROOT}/runtime/runtime.cmake")
+option(MMX4_NATIVE_IDLE_WAIT "Select the audited native PsyQ frame wait" ON)
+set(MMX4_NATIVE_IDLE_WAIT_SITES "")
+if(MMX4_NATIVE_IDLE_WAIT)
+    if(NOT COMMAND psxrecomp_native_idle_wait)
+        message(FATAL_ERROR "MMX4_NATIVE_IDLE_WAIT needs native wait-policy support")
+    endif()
+    set(MMX4_NATIVE_IDLE_WAIT_SITES 0x800E4F20 0x800E4F6C)
+endif()
 
 # The current recompiler emits the game as split translation units. Keep the
 # monolithic fallback for older generated/ directories.
@@ -69,6 +77,7 @@ list(REMOVE_ITEM MMX4_MOD_PLUGIN_SOURCES
 set(MMX4_PRELOADED_MODS "${CMAKE_CURRENT_SOURCE_DIR}/mods/preloaded")
 
 psxrecomp_v4_add_runtime_target(psx-runtime
+    NATIVE_IDLE_WAIT_SITES ${MMX4_NATIVE_IDLE_WAIT_SITES}
     GAME_GENERATED_FULL_C "${GAME_GENERATED_FULL}"
     GAME_GENERATED_DISPATCH_C "${GAME_GENERATED_DISPATCH}"
     DEBUG_PORT 4525
@@ -158,6 +167,16 @@ add_custom_command(TARGET psx-runtime POST_BUILD
     VERBATIM)
 
 if(BUILD_TESTING)
+    find_package(Python3 QUIET COMPONENTS Interpreter)
+    if(Python3_FOUND)
+        add_test(NAME mmx4_vwait_contract
+            COMMAND "${Python3_EXECUTABLE}"
+                "${PSXRECOMP_V4_ROOT}/runtime/tests/native_wait_caller.py"
+                --framework "${PSXRECOMP_V4_ROOT}" --cc "${CMAKE_C_COMPILER}"
+                --generated "${CMAKE_CURRENT_SOURCE_DIR}/generated"
+                --contract "${CMAKE_CURRENT_SOURCE_DIR}/tests/vwait_contract.json")
+        set_tests_properties(mmx4_vwait_contract PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
+    endif()
     add_executable(mmx4_localization_assets_test
         tests/test_localization_assets.cpp src/mods/mmx4_localization.cpp
         "${PSXRECOMP_V4_ROOT}/runtime/src/native_text.cpp"

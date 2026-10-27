@@ -1,0 +1,9 @@
+{
+  "revision": "SLUS-00561",
+  "symbol": "func_800E4EF8",
+  "entry": "0x800E4EF8",
+  "end": "0x800E4F94",
+  "counter": "0x8011DC50",
+  "sites": ["0x800E4F20", "0x800E4F6C"],
+  "callbacks": ["0x800EDC74", "0x800EDE8C", "0x800EDE9C"]
+}
