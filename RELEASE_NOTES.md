@@ -1,4 +1,20 @@
-# Mega Man X4 Recompiled - 1.0.14 Stable Public Beta
+# Mega Man X4 Recompiled - 1.0.15 Stable Public Beta
+
+- Both-player boss doors now keep both heroes under native scripted control until they finish entering. Releasing input or trying to retreat, jump or fire no longer leaves a hero behind or the door open.
+- Each hero advances the appropriate native walk/run or dash animation during entry, including while waiting for the opening animation.
+- Includes the current stable engine's native frame-wait optimization and retained controller fixes.
+
+Validated with walking and dashing through Web Spider's real boss door in both
+X/Zero rosters, actual closing, boss introduction and independent control recovery,
+followed by the owner's visual approval. See [door evidence and limits](docs/COOP_DOOR_ANIMATION.md).
+
+Diagnostic recording remains optional and **off by default**. All netplay
+players must update. Native memory-card saves carry forward. Public packages
+require the original, unmodified USA disc and omit CD Speed, Fast Loading
+and developer cheats. Four Player Co-op and the X1 character experiment remain
+on their separate branches.
+
+## Previous v1.0.14 Stable Public Beta
 
 - Reduced co-op rendering overhead with packed character textures and ordered OpenGL batching. The tested Jet Stingray boss scene improved from about 24 to 60 FPS at the same fixed internal resolution.
 - Preserved guest CPU timing, audio/device clocks and the render-worker default. This is the normal stable release, with the performance improvements enabled by default.
