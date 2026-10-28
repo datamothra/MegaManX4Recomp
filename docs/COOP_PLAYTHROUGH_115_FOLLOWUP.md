@@ -13,21 +13,33 @@ https://youtu.be/kFoOg9fXX2w and https://youtu.be/k_uU8-exp5A, plus
 (SHA256 `53f2c8d087bd46b637bc32361e64ec787dd393dfab35e8dffb7507b380d2c067`).
 Its trace identifies P2's 21-to-zero HP transition at native frame 15991,
 stage 1/section 1, position 4295/1411: the outer boss door. This is an
-additional admission case for `beads-eio.9.272`. The reported vertical
-camera difference is being checked with that traversal. Bounded current and
-unfixed-baseline Web air-dash controls both pass both doors and the fight
-introduction, with camera Y 1280 in both views. Consequently that short
-control does not reproduce the new report and does not prove it fixed.
-The original public-build recording is being replayed with its state checks.
+additional admission case for `beads-eio.9.272`. An unmodified public1.0.15
+replay verifies all16917 native input hashes and reproduces that death.
+Read-only process observations show P2's airborne flagFF and active terrain
+box800F8BC8 during action19, followed by the lethal scripted displacement.
+Its two views have Y1280 and1258 while Zero is airborne. This observation
+does not establish a persistent camera-offset fault; independent views are
+preserved. The bounded Web case now matches the recording's Jump, neutral,
+then Dash **without Right**. Holding Right caused wall-slide and a landing
+before admission, so the earlier passing baseline controls were insufficient.
+The corrected short case reproduces the original death at4295/1411.
 
 The owner also reports flying enemies swarming in during solo intro play
-but failing to appear in two-player co-op (`beads-eio.9.276`). Neither short
-clip depicts the intro; exact swarm location and reproduction are pending.
-Current part 2 controls show all three P2-led flying groups. A P1-led group
+but failing to appear in two-player co-op (`beads-eio.9.276`). The owner
+confirmed the **outdoor first section**, distinct from the historical part2
+falling-object groups. The native opening controller allocates ten type10
+enemies atX34..54. Their subtype3..8 waiting phase49D60 checks whether
+the hero is more than192px ahead. Nearest-hero projection continually picks
+the waiting trailer, so the group never activates when the other hero leads.
+The unfixed native control reproduces all ten remaining hidden in state1/2
+as P1 walks from200 past400 while P2 waits at224. Only that waiting phase
+now selects the furthest living hero; the original activation predicate,
+one shared update, motion and later nearest-target AI remain intact.
+
+Separate part2 controls show all three P2-led flying groups. A P1-led group
 is allocated but remains hidden when the check stops at X3066; continuing
 the actual approach makes those same allocated actors drawable. This is a
-test approach correction, not a new spawn or AI fix. The owner report stays
-open until its exact location and traversal are reproduced.
+test approach correction, not an additional part2 spawn or AI fix.
 
 This work is based on stable `c404f1d`, with framework `9868d30` and UI
 `b964eab`. X1 replacements and Four Player Co-op are separate work.
@@ -38,6 +50,7 @@ This work is based on stable `c404f1d`, with framework `9868d30` and UI
 | P2 starts Dragoon's fight and the camera remains enclosed | `beads-eio.9.273` | Retain the native main-fight camera release before restoring the projected owner. |
 | P1 dead, P2 defeats final Sigma and cannot progress | `beads-eio.9.274` | Retain the victory camera release and give the ending controller the surviving entrant. |
 | Web Spider's corridor scenery follows P2 into the arena | `beads-eio.9.275` | Continue each independent view's native background parallax during a paired door. |
+| Outdoor intro swarm waits forever with a trailing partner | `beads-eio.9.276` | Evaluate its native waiting predicate against the leading living hero, then resume normal targeting. |
 
 ## Native causes
 
@@ -119,7 +132,7 @@ observer across 24 static fixtures (`observer-parity.json`). It does not
 change runtime pacing or the game's update rate. Native text confirmation
 prefers the body carrying the script marker when both heroes remain visible.
 
-The current runtime passes all 43 CTests. Native qualification on executable
+The door/camera runtime passes all 43 CTests. Native qualification on executable
 SHA256 `ecbd879844d869e48aa68e73705afc926799c858a692f0d149f4ea8c520265cf`:
 
 | Check | Evidence | Result |
@@ -128,8 +141,26 @@ SHA256 `ecbd879844d869e48aa68e73705afc926799c858a692f0d149f4ea8c520265cf`:
 | Dragoon first-visit introduction and native camera pan | `native-final-0`, `native-final-1` | Both heroes and both entry leaders pass; actual origins reach 5149. |
 | Web paired-door background parallax and fight recovery | `zero-native`, `native-final-1` | Both P2 hero choices pass; 19/20 crossing observations. |
 | Sigma upper phases, both final health pools and survivor ending handoff | `sigma-qualified-1` | P2 X passes; P2 Zero remains unqualified as explained above. |
-| Additional Web outer air dash | `web-air-and-bees`, `web-bee-approach` | Passes, but also passes unfixed baseline; exact reported death remains open. |
+| Additional Web outer air dash baseline | `original-web-readonly`, `web-recorded-buttons-baseline` | Full original replay and corrected short fixture both reproduce the airborne death. Earlier short passes are excluded from regression evidence. |
 | Intro part 2 source group at 3167/3296 | `web-bee-approach` | P1 native allocation plus closer approach/drawing pass; no game fix claimed. |
+
+The additional outdoor waiting-phase correction is built as executable
+SHA256 `09d3c46cdd526430dcd1f9f37eb774b05c3727ea8c561d2df67c1f25dbc212f2`.
+All 43 CTests pass (`swarm-ctest.log`). Its combined native
+`final-web-outdoor` run passes:
+
+- Web outer-door genuine Zero air dash with damage enabled: 29 observations
+  retain airborne admitted action 19 with the correctly suspended terrain box;
+  both real doors close, the boss introduction finishes and both 32HP heroes
+  regain independent control. Both views reach native boss-room Y1280.
+- Outdoor opening swarm with P1 leading and separately P2 leading: all ten
+  original actors activate and become drawable while the partner stays at
+  their original position. Composed captures were visually inspected and show
+  the flying group entering from behind in the independent views.
+
+`web-recorded-buttons-baseline` and `outdoor-baseline` fail those same checks
+on the unfixed runtime. Earlier door/camera qualifications retain their own
+frozen executable identity; they are not relabeled as new-binary tests.
 
 The extra legacy `door_animation` run in `native-final-1` passes complete
 grounded walking, scripted carry and independent control recovery. Ground

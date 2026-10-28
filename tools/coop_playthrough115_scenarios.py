@@ -342,15 +342,21 @@ def _air_door(s, label, stage, checkpoint, start_x, floor_y, air_index):
                 # outer-door entry with P1 at its native wall edge while
                 # airborne P2 catches up, before shared scripted movement.
                 r.teleport(0, x - (24 if stage == 1 else 12), floor_y)
-                r.teleport(1, x - 72, floor_y)
+                r.teleport(1, x - (82 if stage == 1 else 72), floor_y)
                 s.wait(label + '-air-floor', lambda v: all(p['grounded'] for p in v['players']))
                 sample(label + '-air-grounded', actor)
-                r.input(0xbfdf, 1)
-                time.sleep(.08)
-                r.input(0xffdf, 1)
-                time.sleep(.04)
+                if stage == 1:
+                    r.input(0xffdf, 0)
+                    time.sleep(.25)
+                r.input(0xbfff if stage == 1 else 0xbfdf, 1)
+                time.sleep(.1 if stage == 1 else .08)
+                r.input(0xffff if stage == 1 else 0xffdf, 1)
+                time.sleep(.067 if stage == 1 else .04)
                 assert not r.players()[1][0x89] & 8, 'Jump did not leave the corridor floor'
-                r.input(0xdfdf, 1)
+                # Spider's recording holds Dash without Right. Right at the
+                # wall enters native wall cling/slide before admission and
+                # lands Zero, so it does not reproduce the airborne crush.
+                r.input(0xdfff if stage == 1 else 0xdfdf, 1)
                 if stage == 1:
                     r.input(0xffdf, 0)
             else:
@@ -359,6 +365,7 @@ def _air_door(s, label, stage, checkpoint, start_x, floor_y, air_index):
             admitted = False
             airborne = False
             air_dashing = False
+            suspended_air_entry = False
             closing = False
             deadline = time.monotonic() + 60
             while time.monotonic() < deadline:
@@ -366,9 +373,17 @@ def _air_door(s, label, stage, checkpoint, start_x, floor_y, air_index):
                 body = bytes.fromhex(v['door_actor'])
                 airborne |= not v['players'][1]['grounded']
                 air_dashing |= v['players'][1]['action'] == 13 and not v['players'][1]['grounded']
+                passenger = bytes.fromhex(v['body'][1])
+                suspended_air_entry |= (passenger[5] == 19 and passenger[0x67] == 255 and
+                                        passenger[0xc4] == 255)
                 if body[5] and not admitted:
                     admitted = True
-                    r.release()
+                    if stage == 1 and index == air_index:
+                        # Retain the recording's Circle-only input throughout
+                        # the shared opening; P1 continues holding Right.
+                        r.input(0xdfff, 1)
+                    else:
+                        r.release()
                 assert all(p['hp'] for p in v['players']), ('Door killed a participant', index, v)
                 closing |= admitted and (body[5] >= 4 or body[4] >= 2)
                 if closing and all(not p['door'] for p in v['players']):
@@ -377,6 +392,9 @@ def _air_door(s, label, stage, checkpoint, start_x, floor_y, air_index):
             else:
                 raise AssertionError(('Door did not finish', index, v))
             assert admitted and closing and (index != air_index or airborne and air_dashing)
+            if stage == 1 and index == air_index:
+                assert suspended_air_entry, 'Web fixture landed before admission; it cannot qualify the reported crush'
+            r.release()
             capture_pair(r, s.output / (label + '-door-' + str(index) + '-closed.png'))
         s.watch_enemy = None
         ready = _native_dialogue_wait(s, label + '-fight', lambda v: not v['blocked'] and not v['warning'] and
