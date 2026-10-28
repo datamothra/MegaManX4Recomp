@@ -46,7 +46,8 @@ only **Netplay cameras** is online-only. Changes apply on the next fresh boot.
 
 - **Boss doors and refight teleporters:** Either player is the default. Both
   players waits for both living, present characters to touch the same door or
-  fortress refight pad; dead or withdrawn partners are exempt.
+  fortress refight pad; dead or withdrawn partners are exempt. After door
+  admission, both heroes complete the native scripted entry before control returns.
 - **Fight Double and Iris:** off by default. Fight the campaign's usual boss,
   return through the inner door for the other encounter, then continue P1's story.
 - **Separate E-tank contents:** off by default. Both heroes use the tanks acquired

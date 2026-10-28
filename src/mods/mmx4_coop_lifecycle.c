@@ -35,9 +35,9 @@ typedef struct {
     uint8_t phase,owner,stage,section;
     uint16_t bounds[4];
 } BothDoor;
-/* 1 opening, 2 physical traversal, 3 camera commitment, 4 next boss
- * admission, 5 its conversation. C4 remains the retail boss admission gate
- * until everyone clears; only the player's control pass temporarily masks it. */
+/* 1 opening, 2 scripted traversal, 3 camera commitment, 4 next boss
+ * admission, 5 its conversation. C4 retains the native control/admission lock
+ * until every participant clears; the shared door supplies native movement. */
 static BothDoor both_door;
 /* Exposes the combat module's independent previous-frame solid history. */
 uint8_t mmx4_coop_solid_contact_bits(uint32_t actor,unsigned seat);
@@ -72,7 +72,6 @@ static unsigned normal_guard, menu_guard, world_guard, pickup_guard;
 static unsigned collect_guard, save_guard, reward_guard, death_guard, death_check_guard, capsule_guard;
 static unsigned scene_guard, script_pool_guard, command_guard, control_guard,text_guard,text_init_guard;
 static unsigned door_wait;
-static unsigned door_terrain_guard;
 static uint32_t projected_portal_solid;
 static unsigned flip_guard;
 static unsigned script_active, script_owner, script_serial;
@@ -94,7 +93,7 @@ int mmx4_coop_lifecycle_snapshot_ready(void) {
     return !(inventory_projected || menu_projecting || personal_pass || personal_rendering || normal_guard || menu_guard || world_guard ||
         pickup_guard || collect_guard || save_guard || reward_guard || death_guard || death_check_guard ||
         capsule_guard || scene_guard || script_pool_guard || command_guard || control_guard || text_guard ||
-        text_init_guard || flip_guard || warp_guard || door_wait || door_terrain_guard || surface_call || frost_path_contact_call);
+        text_init_guard || flip_guard || warp_guard || door_wait || surface_call || frost_path_contact_call);
 }
 static void snapshot_inventory(Mmx4SnapshotIO *s,Inventory *inventory) {
     MMX4_SNAPSHOT_BOOL(s,inventory->character);MMX4_SNAPSHOT_U8(s,inventory->hp);
@@ -292,7 +291,6 @@ void mmx4_coop_lifecycle_activate(void) {
     collect_guard=save_guard=reward_guard=death_guard=death_check_guard=capsule_guard=0;
     scene_guard=script_pool_guard=command_guard=control_guard=text_guard=text_init_guard=0;
     door_wait=0;
-    door_terrain_guard=0;
     projected_portal_solid=0;
     memset(&view_second_inventory,0,sizeof view_second_inventory);
     memset(&view_saved_inventory,0,sizeof view_saved_inventory);
@@ -688,6 +686,18 @@ static void both_door_gate(unsigned seat,uint8_t value) {
         body[0xC4]=value;
     }
 }
+static void both_door_release(CPUState *cpu) {
+    both_door_gate(0,0);both_door_gate(1,0);
+    unsigned current=(unsigned)(mmx4_coop_projected()!=0);
+    uint8_t campaign=psx_mod_read_byte(PLAY+0x43);
+    for(unsigned seat=0;seat<2;++seat) {
+        if(!mmx4_coop_alive(seat) || (seat && departed))continue;
+        if(seat!=current) {if(seat)mmx4_coop_enter_second();else mmx4_coop_leave_second();}
+        mmx4_coop_call(cpu,0x80035EA4u,PLAYER,0);
+        if(seat!=current) {if(current)mmx4_coop_enter_second();else mmx4_coop_leave_second();}
+    }
+    psx_mod_write_byte(PLAY+0x43,campaign);
+}
 static int both_door_cleared(void) {
     for(unsigned seat=0;seat<2;++seat) {
         if(!mmx4_coop_alive(seat) || (seat && departed))continue;
@@ -695,7 +705,14 @@ static int both_door_cleared(void) {
         const uint8_t *body=seat?mmx4_coop_second_body():mmx4_coop_first_body();
         int x=(int16_t)(current?psx_mod_read_half(PLAYER+10):(body_word(body,8)>>16));
         uint32_t box=current?psx_mod_read_word(PLAYER+0x68):body_word(body,0x68);
-        if(!box || x+(int8_t)psx_mod_read_byte(box)-psx_mod_read_byte(box+2)<=
+        /* Native C1C24 disables terrain boxes for scripted entry. Use the
+         * same on-foot box that native35EA4 restores at release to measure
+         * clearance without enabling collision against the sealed map. */
+        if(!box) {
+            unsigned character=current?psx_mod_read_byte(PLAYER+2):body[2];
+            box=character?0x800F8BC8u:0x800F8BC4u;
+        }
+        if(x+(int8_t)psx_mod_read_byte(box)-psx_mod_read_byte(box+2)<=
             (int16_t)both_door.right || x<(int16_t)both_door.target_min+8)return 0;
     }
     return 1;
@@ -703,16 +720,7 @@ static int both_door_cleared(void) {
 static void both_door_abort(CPUState *cpu) {
     if(both_door.phase<=3 && both_door.phase &&
        script_active && script_serial==both_door.serial) {
-        unsigned owner=both_door.owner;
-        both_door_gate(0,0);both_door_gate(1,0);
-        if(mmx4_coop_alive(owner)) {
-            unsigned current=(unsigned)(mmx4_coop_projected()!=0);
-            uint8_t campaign=psx_mod_read_byte(PLAY+0x43);
-            if(owner!=current) {if(owner)mmx4_coop_enter_second();else mmx4_coop_leave_second();}
-            mmx4_coop_call(cpu,0x80035EA4u,PLAYER,0);
-            if(owner!=current) {if(current)mmx4_coop_enter_second();else mmx4_coop_leave_second();}
-            psx_mod_write_byte(PLAY+0x43,campaign);
-        }
+        both_door_release(cpu);
         script_active=0;
         for(unsigned i=0;i<sizeof scenes/sizeof scenes[0];++i)
             if(scenes[i].actor==both_door.actor)memset(&scenes[i],0,sizeof scenes[i]);
@@ -727,18 +735,6 @@ static void both_door_tick(CPUState *cpu) {
         !psx_mod_read_byte(both_door.actor) || psx_mod_read_byte(both_door.actor+1)!=8 ||
         psx_mod_read_byte(both_door.actor+4)!=1 || !psx_mod_read_byte(both_door.actor+5))))
         both_door_abort(cpu);
-    if(both_door.phase>=2 && both_door.phase<=3) {
-        /* A hero may retreat through a camera return strip while this door
-         * remains open. On touching its original admission box again, restore
-         * that hero's authored enclosure; do not clamp the distant partner. */
-        unsigned seats=0;
-        for(unsigned seat=0;seat<2;++seat)if(mmx4_coop_alive(seat)) {
-            if(seat)mmx4_coop_enter_second();
-            if(mmx4_coop_call(cpu,0x800C1E7Cu,both_door.actor,0))seats|=1u<<seat;
-            if(seat)mmx4_coop_leave_second();
-        }
-        if(seats)mmx4_coop_split_door_camera_bounds(seats,both_door.bounds);
-    }
 }
 static void start_outgoing(CPUState *cpu,unsigned seat) {
     mmx4_coop_armor_dismount(cpu,seat);
@@ -2164,9 +2160,18 @@ static int both_door_traversal(CPUState *cpu,uint32_t address) {
     (void)address;
     if(!scene_guard || !both_door_scope() || both_door.actor!=cpu->gpr[4] ||
        both_door.phase<2 || both_door.phase>3)return 0;
-    /* Retail C1D90 moves the singleton by A400 fixed units every tick. Both
-     * mode instead waits for actual movement and the full collision boxes
-     * to clear. Keeping C4 outside the control pass also keeps bosses waiting. */
+    /* Original C1D90 owns this one world update and adds A400 fixed units
+     * to the scripted body. Apply that same displacement to each participant;
+     * their native action19 advances animation, without player steering or a
+     * second physics/door update. Missing/dead heroes cannot hold the gate. */
+    unsigned current=(unsigned)(mmx4_coop_projected()!=0);
+    for(unsigned seat=0;seat<2;++seat) {
+        if(!mmx4_coop_alive(seat) || (seat && departed))continue;
+        if(seat!=current) {if(seat)mmx4_coop_enter_second();else mmx4_coop_leave_second();}
+        psx_mod_write_word(PLAYER+8,psx_mod_read_word(PLAYER+8)+0xA400u);
+        if(seat!=current) {if(current)mmx4_coop_enter_second();else mmx4_coop_leave_second();}
+    }
+    psx_mod_counter_add("mmx4.coop.both-door-scripted-steps",1);
     if(!both_door_cleared())return mmx4_coop_finish(cpu,0);
     psx_mod_write_half(0x801419D6u,both_door.target_min);
     if(both_door.phase==2) {
@@ -2174,17 +2179,14 @@ static int both_door_traversal(CPUState *cpu,uint32_t address) {
         mmx4_coop_split_commit_door_minimum(both_door.target_min);
     }
     both_door.phase=3;
-    /* Free movement can put the opener farther inside the new room than
-     * retail's auto-walk, especially when P2 leads. An exact minimum-X
-     * wait then never finishes (Frost: camera6080, minimum6032). Require
-     * arrival inside the authored interval, after both boxes clear. */
+    /* Retain the qualified independent-camera arrival interval. The shared
+     * controller cannot close until both complete bodies are inside it. */
     int camera_x=(int16_t)psx_mod_read_half(0x801419BAu);
     int minimum=(int16_t)both_door.target_min;
     int maximum=(int16_t)psx_mod_read_half(0x801419D4u);
     if(camera_x<minimum || camera_x>maximum)
         return mmx4_coop_finish(cpu,0);
-    both_door_gate(0,0);both_door_gate(1,0);
-    mmx4_coop_call(cpu,0x80035EA4u,PLAYER,0);
+    both_door_release(cpu);
     psx_mod_write_byte(both_door.actor+5,4);
     mmx4_coop_call(cpu,0x80015D60u,both_door.actor,1);
     uint32_t old_a2=cpu->gpr[6];cpu->gpr[6]=both_door.actor;
@@ -2235,33 +2237,6 @@ static void paired_iris_camera(CPUState *cpu,uint32_t address) {
     if(both_door.phase<4)cpu->gpr[3]=cpu->gpr[2]^1u;
     else if(x>=2032 && x<=2096 && (minimum==2032 || minimum==2048) &&
             psx_mod_read_half(0x801419D4u)==2096)cpu->gpr[3]=cpu->gpr[2];
-}
-static int both_door_map(CPUState *cpu,uint32_t address) {
-    if(door_terrain_guard || !mmx4_coop_ready() || !both_door_scope() ||
-       both_door.phase<2 || both_door.phase>3 || cpu->gpr[4]!=PLAYER ||
-       !door_pool_actor(both_door.actor) || psx_mod_read_byte(both_door.actor+1)!=8 ||
-       psx_mod_read_byte(both_door.actor+4)!=1 || psx_mod_read_byte(both_door.actor+5)!=3)return 0;
-    uint32_t box=psx_mod_read_word(both_door.actor+0x68);
-    if(!box || !mmx4_snapshot_guest(box))return 0;
-    int x=(int16_t)cpu->gpr[5],y=(int16_t)cpu->gpr[6];
-    int center_x=(int16_t)psx_mod_read_half(both_door.actor+10)+(int8_t)psx_mod_read_byte(box);
-    int center_y=(int16_t)psx_mod_read_half(both_door.actor+14)+(int8_t)psx_mod_read_byte(box+1);
-    int width=psx_mod_read_byte(box+2),height=psx_mod_read_byte(box+3);
-    if(x<center_x-width || x>=center_x+width || y<center_y-height || y>=center_y+height)return 0;
-    /* Retail door auto-walk disables the body's whole terrain box to cross
-     * the sealed map cells. Normal Both controls keep their real box and
-     * floor collision: only the observed 38 wall samples inside the fully
-     * opened aperture become passable. This includes interior ceiling tests
-     * that would otherwise crush a body against the floor. The aperture's
-     * bottom edge is excluded, preserving its native floor; other tiles and
-     * lethal classes retain the original query and its side effects. */
-    door_terrain_guard=1;
-    uint32_t result=mmx4_coop_call(cpu,address,cpu->gpr[4],cpu->gpr[5]);
-    door_terrain_guard=0;
-    if(result==0x38u) {
-        result=0;psx_mod_counter_add("mmx4.coop.both-door-map-passages",1);
-    }
-    return mmx4_coop_finish(cpu,result);
 }
 static void authored_floor_limit(CPUState *cpu,uint32_t address) {
     (void)address;
@@ -2412,10 +2387,10 @@ static int scene_actor_canonical(CPUState *cpu,uint32_t address) {
         if(pair_candidate) {
             both_door=(BothDoor){actor,script_serial,old_min,old_min,(uint16_t)door_right,
                 1,(uint8_t)owner,psx_mod_read_byte(PLAY+0x0C),psx_mod_read_byte(PLAY+0x0D)};
-            /* The partner also belongs to this doorway's admission gate.
-             * Signed FF takes 338CC's blez return, preserving its normal
-             * action and box; only the native owner consumes positive C4=1. */
-            both_door_gate(owner^1u,255);
+            /* Each hero consumes native338CC's positive admission flag and
+             * enters its own action19. Neither returns to normal steering
+             * while the shared door is opening or carrying them inside. */
+            both_door_gate(owner^1u,1);
         }else request_script_departure(owner);
     }else if(address==0x800C1994u && old_door && !new_door &&
              script_active && script_owner==owner && record && record->serial==script_serial) {
@@ -2430,9 +2405,8 @@ static int scene_actor_canonical(CPUState *cpu,uint32_t address) {
         psx_mod_write_half(0x801419D6u,both_door.old_min);
         for(unsigned i=0;i<4;++i)both_door.bounds[i]=psx_mod_read_half(0x801419D4u+i*2u);
         mmx4_coop_split_door_camera_bounds(3,both_door.bounds);
-        if(owner)mmx4_coop_enter_second();
-        mmx4_coop_call(cpu,0x80035EA4u,PLAYER,0);
-        if(owner)mmx4_coop_leave_second();
+        /* Keep action19/C4 and disabled terrain boxes through traversal.
+         * The original body action owns animation; the door owns movement. */
         both_door.phase=2;
     }
     if(serial!=script_serial) {
@@ -2668,61 +2642,32 @@ static int nonowner_controls(CPUState *cpu,uint32_t address) {
     }
     if(control_guard || !mmx4_coop_ready() || !script_active)return 0;
     unsigned seat=mmx4_coop_projected()?1u:0u;
-    if(both_door_scope() && both_door.serial==script_serial &&
-       both_door.phase>=2 && both_door.phase<=3 && mmx4_coop_alive(seat)) {
-        /* Let the real controller leave action19 and retain walk, dash and
-         * attacks. C4 is restored for the enemy/door dispatchers; positions,
-         * velocities, native collision results and controller output persist. */
-        uint8_t door=psx_mod_read_byte(PLAYER+0xC4);
-        psx_mod_write_byte(PLAYER+0xC4,0);
-        control_guard=1;
-        uint32_t result=mmx4_coop_call(cpu,address,cpu->gpr[4],cpu->gpr[5]);
-        control_guard=0;
-        if(both_door.phase>=2 && both_door.phase<=3)
-            psx_mod_write_byte(PLAYER+0xC4,door);
-        return mmx4_coop_finish(cpu,result);
-    }
     if(both_door_scope() && both_door.serial==script_serial && both_door.phase==1 &&
-       !psx_mod_local_view_scope() && mmx4_coop_alive(seat) &&
-       psx_mod_read_byte(PLAYER+4)==1 && !psx_mod_read_byte(PLAYER+0xC5) &&
-       !psx_mod_read_byte(PLAYER+0x67) && !psx_mod_read_byte(PLAYER+0xBC) &&
-       !psx_mod_read_byte(PLAYER+0xBD)) {
+       psx_mod_read_byte(PLAY+0x10) && !psx_mod_local_view_scope() &&
+       mmx4_coop_alive(seat) && psx_mod_read_byte(PLAYER+4)==1 &&
+       !psx_mod_read_byte(PLAYER+0xC5) && !psx_mod_read_byte(PLAYER+0x67) &&
+       !psx_mod_read_byte(PLAYER+0xBC) && !psx_mod_read_byte(PLAYER+0xBD)) {
+        control_guard=1;
+        /* P2's body can follow the door actor in this update. Initialize its
+         * native door action even if the owner has just asserted PLAY+10.
+         * Native338CC changes pose/action only, never movement or animation. */
+        if(psx_mod_read_byte(PLAYER+0xC4)==1)
+            mmx4_coop_call(cpu,0x800338CCu,PLAYER,0);
+        /* Admission can coincide with the last run/dash update, leaving its
+         * release clip instead of a looping entry animation. Retain that
+         * incoming movement class without restarting it on later updates. */
         unsigned program=psx_mod_read_byte(PLAYER+0x17);
-        int passenger=seat!=script_owner;
-        unsigned retained=program;
-        /* A waiting hero can already be idle or in run/dash release at
-         * admission. Match native338CC's automatic walk selection; retain
-         * an incoming dash rather than its one-frame release pose. */
-        if(program==5 || program==6 || program==12)program=0x26;
-        if(program==9)program=8;
-        if(program==17)program=16;
-        if((program==8 || program==16 || program==0x26) &&
-           (passenger || psx_mod_read_byte(PLAY+0x10))) {
-            /* Preserve the incoming native run/dash clip. Neutral passenger
-             * steering still performs its original stop/physics transition,
-             * but must not replace that clip with a frozen stop/dash-end pose.
-             * PLAY+10 then skips both action dispatchers during opening.
-             * Advance only native15DC8 (cursor34/timer44..47) once here; the
-             * original body, door and free-traversal passes keep their rate. */
-            control_guard=1;
-            uint32_t cursor=psx_mod_read_word(PLAYER+0x34);
-            uint32_t animation=psx_mod_read_word(PLAYER+0x44);
-            if(passenger) {
-                psx_mod_write_half(PLAYER+0x7C,0);psx_mod_write_half(PLAYER+0x7E,0);
-                psx_mod_write_half(PLAYER+0x80,0);
-            }
-            uint32_t result=mmx4_coop_call(cpu,address,cpu->gpr[4],cpu->gpr[5]);
-            if(program!=retained)mmx4_coop_call(cpu,0x800350A4u,PLAYER,program);
-            else if(passenger) {
-                psx_mod_write_byte(PLAYER+0x17,(uint8_t)program);
-                psx_mod_write_word(PLAYER+0x34,cursor);
-                psx_mod_write_word(PLAYER+0x44,animation);
-            }
-            mmx4_coop_call(cpu,0x80015DC8u,PLAYER,0);
-            control_guard=0;
-            psx_mod_counter_add("mmx4.coop.both-door-animation-ticks",1);
-            return mmx4_coop_finish(cpu,result);
-        }
+        if(program==9 || program==17)
+            mmx4_coop_call(cpu,0x800350A4u,PLAYER,program==9?8u:16u);
+        psx_mod_write_word(PLAYER+0x68,0);
+        uint32_t result=mmx4_coop_call(cpu,address,cpu->gpr[4],cpu->gpr[5]);
+        /* The shared opening lock bypasses both native action dispatchers.
+         * Advance their animation leaf once; open traversal naturally runs
+         * action19, so no extra leaf call is made there. */
+        mmx4_coop_call(cpu,0x80015DC8u,PLAYER,0);
+        control_guard=0;
+        psx_mod_counter_add("mmx4.coop.both-door-animation-ticks",1);
+        return mmx4_coop_finish(cpu,result);
     }
     if(seat==script_owner || !mmx4_coop_alive(seat))return 0;
     /* The scripted owner retains native auto-walk/warp. Its living partner
@@ -2883,8 +2828,6 @@ PSX_MOD_CONSTRUCTOR(mmx4_register_coop_lifecycle) {
     psx_mod_register_function_filter_plugin(ID,0x80088D30u,paired_boss_admission);
     psx_mod_register_instruction_plugin(ID,0x800D0580u,0x14620006u,paired_intro_camera);
     psx_mod_register_instruction_plugin(ID,0x80081250u,0x14620005u,paired_iris_camera);
-    psx_mod_register_function_filter_plugin(ID,0x8002D7E4u,both_door_map);
-    psx_mod_register_function_filter_plugin(ID,0x8002D724u,both_door_map);
     psx_mod_register_function_filter_plugin(ID,0x800BD654u,scene_actor);
     /* Destructible section exits (Jungle waterfall): bind the outgoing walk
      * and its completion query to one body. Otherwise C165C redirects the

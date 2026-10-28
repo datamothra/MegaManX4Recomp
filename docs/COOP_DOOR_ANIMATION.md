@@ -1,59 +1,72 @@
-# Both-player door animation polish
+# Scripted Both-player door entry
 
-Local base-branch follow-up to X5 commit `3e6173c`, tracked by
-`beads-eio.9.270`. Current review branch: `review/door-animation-current`,
-based on master `79e38d84fe971cc3c186fd451913fa4ab639893f`.
-The original native qualification used stable 1.0.14,
-`3656e01304519732fb9736c7a0b1847f9139038a`.
-X1 and four-player changes remain on their separate feature branches.
+Local base-X4 follow-up to X5 commit `3e6173c`, tracked by `beads-eio.9.270`.
+Branch: `review/door-animation-current`, based on master
+`79e38d84fe971cc3c186fd451913fa4ab639893f`. X1 and four-player work remain separate.
 
-X4's Both mode already allows independent movement after a door opens.
-That free-traversal path remains intact. During the preceding opening lock,
-the passenger's neutral steering can select a stop/dash-end pose, then both
-heroes remain frozen on their current animation frames for 76 game updates.
+The owner rejected the previous preview's free traversal after opening.
+Both-player mode must retain scripted control through entry, like the original
+single-player game. Both living, present heroes still have to touch the same
+door. After admission, releasing controls cannot stop the crossing, and steering,
+jump, fire or dash input cannot take over until the door releases them.
 
-The original US executable identifies the relevant native paths:
+## Native path and implementation
 
-- `800311EC` runs each body once. `800312B4` branches past action dispatch
-  when `PLAY+10` is set, suspending its usual animation advance.
-- `800338CC` initializes door action 19 and preserves a running/dashing
-  program, or chooses automatic-walk program `26` from idle/jump poses.
-- `800350A4` selects native artwork/animation resources. It does not advance
-  movement, contacts, the shared door controller or shared clocks.
-- `80015DC8` is the animation leaf: decrement byte `44`; on expiration,
-  advance cursor `34` by signed byte `46` times four and load bytes `44..47`.
+The original USA executable supplies these routines:
 
-The existing body filter now preserves the passenger's incoming native run
-or dash program around its original neutral-steering body call. Waiting
-idle/release poses receive the corresponding native automatic walk/run or
-dash program after that body call. During the shared opening lock, it calls
-only the animation leaf once per eligible on-foot body update. The original
-body/physics pass still runs once, with its existing input; opening/closing,
-admission, cameras, collision boxes and progression retain their owners.
-Hitstop, hidden/dead heroes, mounts, other scenes and local render passes are
-excluded. Free movement after opening resumes its ordinary animation path.
-No hook site, serialized field or setting was added.
+- `800338CC` consumes positive C4, keeps a run/dash animation (or selects native
+  automatic walk `26`), faces right, sets action19 and changes C4 to FF.
+- Action19 dispatches to `80032F64` / `80032FA4`. While C4 is set, it advances
+  native animation leaf `80015DC8`, without ordinary player physics/steering.
+- `800312B4` bypasses action dispatch while the shared opening lock PLAY+10 is
+  active. Each suspended body receives only one animation-leaf advance per
+  original body update. A passenger that reaches this pass after the door
+  asserts the lock first runs native338CC to initialize its own action19.
+  A run/dash release clip at admission selects its corresponding looping
+  native run/dash clip once; later updates retain and advance that program.
+- Native `800C1C24` disables the opening hero's terrain box; the companion keeps
+  the same protection during entry. Native `800C1C88` ends opening and supplies
+  the authored destination room bounds. Action19 and C4 remain in effect.
+- `800C1D90` adds exactly `0xA400` fixed-point units to the original singleton's
+  X once per door update. Its existing Both-player filter applies that same step
+  to each living participant, retaining one shared controller update. Ordinary
+  body actions own animation; no extra physics or movement pass is called.
+- Completion waits until both full native foot boxes clear the aperture and
+  the existing independent-camera destination interval is committed. The box
+  offsets come from the same original tables that `80035EA4` restores. Both
+  C4 flags and boxes are restored on release, or if the door aborts. The shared
+  native closing animation, sound and following boss introduction each run once.
+
+The former normal-control override, return-strip re-entry scan and open-door
+map-wall exception are removed. The native scripted action already crosses
+with its terrain box disabled. There are no new serialized fields, settings
+or hook sites. Either-player admission, native cameras, opening/closing clocks,
+other scenes, mounts and the rest of gameplay retain their existing owners.
+The shared door releases at its native closing transition; the subsequent boss
+introduction applies and releases its ordinary scene lock.
 
 ## Bounded qualification
 
 Evidence: `G:/Temp/Codex/psxrecomp/x4-door-animation`.
-Final qualification results are recorded in `qualification.json` there.
+Current scripted-entry results and source/binary identities are recorded in
+`scripted-entry-qualification.json`. Earlier free-traversal qualification in
+`qualification.json` is historical and does not clear this changed requirement.
 
-The `door_animation` scenario uses Jungle part 2's authored boss checkpoint.
-It approaches the real common type-8 door by controller input, walking and
-dashing, then observes actual opening, closing, Web Spider's introduction,
-full boss HP and independent controller jumps after release. Fixtures select
-the checkpoint and prepare positions only; final runs retain actual damage
-and deaths. No door phase, animation, timer, camera result, boss HP or scene
-completion is written by a fixture.
+The `door_animation` scenario selects Jungle part2's authored boss checkpoint
+and prepares positions only. Walking admission is followed by neutral input;
+dash admission is followed by held Left+Jump+Fire+Dash. Each run must observe the
+actual opening, scripted displacement, native closing, Web Spider's introduction,
+full boss HP and independent jumps after control returns. Both campaign rosters
+exercise X and Zero in each seat. No door, animation, timer, camera result, boss HP
+or scene-completion value is supplied by a fixture; damage remains enabled.
 
-Presented-frame RAM records both bodies, PLAY and the actual door. Each
-consecutive locked update checks the original animation leaf's cursor/timer
-transition, the retained run/dash program and unchanged body positions. The
-same scenario reverses campaign roles to cover both X and Zero as passenger
-and opener. Composed images and render-pass verification complement the RAM
-checks; heroes can overlap at the admission box, limiting visibility of some
-individual sprite parts. Only one common door mechanic is added as a case.
+Completed-frame observations check animation cursor/timer transitions during
+opening and traversal, action19, C4 and the original A400 movement step. Live
+body records supply C4; the retained 128-byte per-frame body slice does not
+include that offset. Render-pass verification and composed captures accompany
+the native observations. Only one common door mechanic is added as a case.
+Unit checks also cover opposing inputs, restored terrain boxes, missing/dead
+participants, camera commitment, aborts and current-format snapshots.
 
 ```powershell
 python tools/test_mmx4_coop_regressions.py `
@@ -65,45 +78,25 @@ python tools/test_mmx4_coop_regressions.py `
   --campaign 0 --cases door_animation
 ```
 
-Repeat with `--campaign 1`. The existing admission-policy checks remain
-available as `--cases boss_door_policy`; no duplicate stage matrix is added
-for doors using the same controller. Mounted admission, every stage-specific
-door, other hosts and LAN have not been newly qualified by this polish.
+Repeat with `--campaign 1`. Mounted admission, all stage-specific doors,
+other hosts and LAN are not newly qualified by this bounded check.
 
-Local human review: `owner-review/Try Door Animation.cmd` in the evidence
-directory. It verifies the candidate identity, boots to the original checkpoint
-and prepares a current-build paused approach for P1 keyboard/P2 DualSense,
-with normal audio and a normal window. It preserves the private profile's
-cards and uses slot9 reserved for this review. It leaves an active X1 playtest
-running and asks the owner to finish that window before starting this one.
+## Owner review
 
-The review panel provides Walk and Dash checks, an immediate Restart approach
-button, and per-binary Pass/Fail/Deferred notes. It reads actual SIO samples
-while paused: tap keyboard Right, release, then DualSense Right to verify
-independent input ownership. Configured device IDs alone do not count as a
-passing control check. Notes remain in `owner-review/door-review-notes.json`;
-individual failures and deferred items must be read before merge.
+Run `owner-review/Try Door Animation.cmd`. It verifies the candidate identity,
+boots a normal window with normal audio, prepares a fresh damage-enabled paused
+approach, and assigns keyboard/P1 and DualSense/P2. Slot9 belongs to this review;
+native cards and other settings/notes are preserved. An active X1 playtest is
+left running until the owner closes it.
 
-Unpause with Enter/Options, move both heroes right, and use S/Circle to dash.
-Observe native opening animations, actual closing, the boss introduction and
-independent jumps after control returns. The setup does not complete any of
-those results. Both approaches restore the same pre-door snapshot; their
-different inputs exercise walk/run versus dash without adding duplicate
-stage-mechanic cases. The owner requested approval before merging this local
-branch into master; the review setup does not publish or merge it.
+The panel provides Walk and Dash checks, Restart approach, and per-binary
+Pass/Fail/Deferred notes. While paused, hold keyboard Right briefly, release,
+then hold DualSense Right to verify actual independent SIO inputs. Configured
+GUIDs alone do not count as passing ownership. Enter/Options resumes.
 
-Original Windows qualification: **42/42 CTests passed**, plus all four native
-walk/dash routes across both campaign rosters, with damage enabled. Opening
-remained **76 updates**, matching baseline. **592 consecutive animation
-cursor/timer checks** passed across the suspended body passes, with
-**11844 render checks** and no mismatch, VRAM leak, abort or watchdog.
-The lock is asserted after that update's body passes; the following update is
-the first suspended body pass. The observer excludes that assertion boundary
-from its once-per-update comparisons, avoiding an extra animation tick.
-
-Current-master review rebuild: **43/43 CTests passed**, including the actual
-regenerated native-wait caller contract. The door implementation is unchanged
-from the qualified native runs above. Current-build human door checks and
-physical control ownership remain pending in the new review panel; the old
-runtime qualification is retained as historical evidence, not a claim that
-the rebuilt candidate has already received the owner's play check.
+Move both heroes to the door, optionally using S/Circle to dash. Once opening
+begins, release input or try to retreat/jump/fire. Both must finish entry under
+scripted control, close the door and reach the real boss introduction. Confirm
+that each can jump after control returns. Read `door-review-notes.json` before
+follow-up, preserving individual failures/caveats. Merge only after the owner
+approves the corrected candidate.

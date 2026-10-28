@@ -15,14 +15,15 @@ from test_mmx4_coop_regressions import Scenarios
 
 
 CHECKS = {
-    'Walk through door': 'Press Enter/Options to resume. Hold Right on the keyboard '
-        'and on the DualSense until both heroes pass the real door. Both should keep '
-        'their walk/run animation during opening. Confirm actual closing, advance '
-        'the boss dialogue with X/Cross, then jump with each hero after control returns.',
-    'Dash through door': 'Restart the approach, then resume. Hold Right + S on the '
-        'keyboard and Right + Circle on the DualSense. Both should retain an advancing '
-        'native dash animation during opening. Continue through closing and the boss '
-        'introduction; confirm that both heroes regain control.',
+    'Walk through door': 'Press Enter/Options to resume. Move both heroes Right '
+        'until opening starts, then RELEASE both controls. Both must keep '
+        'animating and finish entry automatically. Confirm closing, advance the '
+        'boss dialogue with X/Cross, then jump with each hero after control returns.',
+    'Dash through door': 'Restart and resume. Approach with Right + S on the '
+        'keyboard and Right + Circle on the DualSense. Once opening starts, '
+        'release input or try Left + jump + fire. Both must retain the scripted '
+        'entry and advancing dash animation. Confirm closing, boss introduction '
+        'and independent control afterward.',
 }
 
 
@@ -97,8 +98,8 @@ def main():
     selected = tk.StringVar(value=next(iter(CHECKS)))
     instructions = tk.StringVar()
     status = tk.StringVar(value='First approach is paused. Enter/Options resumes.')
-    controls = tk.StringVar(value='Controls pending: while paused, tap keyboard Right, '
-        'release, then tap DualSense Right. Each must affect only its own port.')
+    controls = tk.StringVar(value='Controls pending: while paused, hold keyboard Right briefly, '
+        'release, then hold DualSense Right. Each must affect only its own port.')
     panel = ttk.Frame(root, padding=14)
     panel.pack(fill='both', expand=True)
     ttk.Combobox(panel, textvariable=selected, values=list(CHECKS),

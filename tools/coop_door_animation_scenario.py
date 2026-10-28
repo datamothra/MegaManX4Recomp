@@ -61,6 +61,7 @@ def door_animation(s, *, require_advance=True):
         observations = []
         opened = False
         closed = False
+        admitted = False
         opening_shots = []
         prefix = 'door-animation-' + kind
         try:
@@ -70,6 +71,14 @@ def door_animation(s, *, require_advance=True):
             while time.monotonic() < deadline:
                 v = s.sample(prefix)
                 door = r.read(actor, 128)
+                if not admitted and door[5] >= 1:
+                    admitted = True
+                    # Once admitted, the original scripted carry must finish
+                    # with no steering, or despite attempts to retreat/jump/fire.
+                    for seat in (0, 1):
+                        r.input(0xffff if kind == 'walk' else 0x1f7f, seat)
+                if door[4:6] == bytes((1, 3)) and opened:
+                    assert all(p['action'] == 19 and p['door'] == 255 for p in v['players']), ('Door control gate released early', kind, v)
                 observations.append(dict(frame=v['frame'], door=list(door[:7]), state=v))
                 assert all(p['hp'] and p['state'] == 1 for p in v['players']), v
                 if (door[4:6] == bytes((1, 2)) and len(opening_shots) < 3 and
@@ -130,6 +139,27 @@ def door_animation(s, *, require_advance=True):
                 animation.append(dict(seat=seat, native_sprites=sprites, timers=timers,
                                       incoming_program=incoming, selected_program=bodies[0][0x17],
                                       consecutive_animation_checks=checks))
+            crossing = [v for v in rows if bytes.fromhex(v['doorhex'])[4:6] == bytes((1, 3))]
+            carry_checks = [0, 0]
+            for previous, current in zip(crossing[1:], crossing[2:]):
+                if current['frame'] != previous['frame'] + 1:
+                    continue
+                for seat in (0, 1):
+                    a = bytes.fromhex(previous['bodyhex'][seat])
+                    b = bytes.fromhex(current['bodyhex'][seat])
+                    assert b[5] == 19, ('Door released native action early', kind, seat, current)
+                    old_x = struct.unpack_from('<I', a, 8)[0]
+                    new_x = struct.unpack_from('<I', b, 8)[0]
+                    assert (new_x-old_x) & 0xffffffff == 0xa400, ('Incorrect scripted displacement', kind, seat, previous, current)
+                    assert a[12:16] == b[12:16], ('Jump input escaped scripted entry', kind, seat)
+                    cursor = struct.unpack_from('<I', a, 0x34)[0]
+                    if a[0x44] == 1:
+                        cursor = (cursor + struct.unpack_from('<b', a, 0x46)[0]*4) & 0xffffffff
+                    else:
+                        assert b[0x44] == (a[0x44]-1) & 255, ('Carry animation timer', kind, seat)
+                    assert struct.unpack_from('<I', b, 0x34)[0] == cursor, ('Carry animation cursor', kind, seat)
+                    carry_checks[seat] += 1
+            assert min(carry_checks) >= 10, ('Scripted carry not observed', kind, carry_checks)
             # Continue into the actual boss scene, confirming text via input.
             s.watch_enemy = 43
             deadline = time.monotonic() + 65
@@ -160,6 +190,8 @@ def door_animation(s, *, require_advance=True):
             assert v['lives'] == before['lives'] and all(p['hp'] for p in v['players'])
             capture_pair(r, s.output/(prefix + '-controls.png'))
             result = dict(kind=kind, opening_frames=len(locked), animation=animation,
+                          entry_input='neutral after admission' if kind == 'walk' else 'left+jump+fire+dash after admission',
+                          scripted_carry_checks=carry_checks,
                           native_opening=True, native_closing=True,
                           actual_boss_introduction=True, controls=controls)
             results.append(result)

@@ -219,22 +219,28 @@ def run_paired_case(runtime, campaign, first, output):
             if not controlled and door_open():
                 runtime.release()
                 stopped = observe()
-                runtime.input(0xffdf, 1)  # P2 walks while P1 waits.
                 end_frame = stopped['frame'] + 12
                 while state['frame'] < end_frame:
                     state = observe()
                     time.sleep(.02)
-                if abs(state['players'][0]['x'] - stopped['players'][0]['x']) > 2:
-                    raise AssertionError('Open door moved P1 without input')
-                if state['players'][1]['x'] <= stopped['players'][1]['x']:
-                    raise AssertionError('Open door did not allow independent P2 movement')
-                record['independent_controls'] = state
-                runtime.input(0x7fff, 1)
-                time.sleep(.1)
-                record['attack_controls'] = observe()
-                controlled = True
+                if any(state['players'][seat]['x'] <= stopped['players'][seat]['x'] + 3
+                       for seat in (0, 1)):
+                    raise AssertionError('Scripted door entry stopped when controls were released')
+                record['released_controls'] = state
                 for seat in (0, 1):
-                    runtime.input(0xffdf, seat)
+                    runtime.input(0x1f7f, seat)  # Left + jump + fire + dash.
+                start = state
+                end_frame = state['frame'] + 12
+                while state['frame'] < end_frame:
+                    state = observe()
+                    time.sleep(.02)
+                if any(state['players'][seat]['x'] <= start['players'][seat]['x'] + 3
+                       or abs(state['players'][seat]['y'] - start['players'][seat]['y']) > 2
+                       for seat in (0, 1)):
+                    raise AssertionError('Player input escaped the scripted door entry')
+                record['opposing_controls'] = state
+                controlled = True
+                runtime.release()
             crossed = counters().get('mmx4.coop.both-door-crossings', 0) > \
                 before_counts.get('mmx4.coop.both-door-crossings', 0)
             if crossed and not any(p['door'] for p in state['players']):
@@ -243,7 +249,7 @@ def run_paired_case(runtime, campaign, first, output):
         else:
             raise TimeoutError(f'Both players did not physically cross (entered={entered})')
         if not controlled:
-            raise AssertionError('Native open-door control phase was not observed')
+            raise AssertionError('Native scripted door carry was not observed')
         runtime.release()
         record['after'] = observe()
         # Complete the native conversation and keep checking for a delayed
