@@ -100,3 +100,7 @@ scripted control, close the door and reach the real boss introduction. Confirm
 that each can jump after control returns. Read `door-review-notes.json` before
 follow-up, preserving individual failures/caveats. Merge only after the owner
 approves the corrected candidate.
+
+The owner approved the corrected scripted-entry candidate at source `0932537`
+for integration and release 1.0.15. The earlier free-traversal candidate remains
+a recorded failure; its validation does not substitute for the corrected checks.
