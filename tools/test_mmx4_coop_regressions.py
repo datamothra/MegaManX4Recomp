@@ -15,10 +15,30 @@ import subprocess
 import time
 import tomllib
 from coop_debug import Runtime
-from test_mmx4_coop_doors import snapshot
+from test_mmx4_coop_doors import body_state
 
 
 class Scenarios:
+    def spider_air_door(self):
+        from coop_playthrough115_scenarios import spider_air_door
+        return spider_air_door(self)
+
+    def spider_door_scenery(self):
+        from coop_playthrough115_scenarios import spider_door_scenery
+        return spider_door_scenery(self)
+
+    def sigma_survivor_victory(self):
+        from coop_playthrough115_scenarios import sigma_survivor_victory
+        return sigma_survivor_victory(self)
+
+    def magma_entry_camera(self):
+        from coop_playthrough115_scenarios import magma_entry_camera
+        return magma_entry_camera(self)
+
+    def cyber_air_door(self):
+        from coop_playthrough115_scenarios import cyber_air_door
+        return cyber_air_door(self)
+
     def sigma_story_corridor(self):
         from coop_sigma_corridor_scenario import sigma_story_corridor
         return sigma_story_corridor(self)
@@ -208,32 +228,40 @@ class Scenarios:
         self.watch_type=None
         self.watch_enemy=None
         self.first_boss=None
+        self.diagnostic_address=None
 
     def sample(self, label, capture=False):
-        row = dict(label=label, **snapshot(self.r))
-        # The co-op body mirror stops outside gameplay; shared dispatcher
-        # fields remain canonical and must be read live for reward/title UI.
-        shared=self.r.read(0x801721c0,0x26)
-        row['mode']=list(shared[:4])
-        row['stage'],row['section']=shared[12:14]
-        row['checkpoint']=shared[0x1d]
-        row['blocked']=self.r.read(0x801721dc,1)[0]
-        mirror=self.r.read(self.r.diagnostic(),0x6d0)
-        row['plugin_failed']=struct.unpack_from('<I',mirror,12)[0]
-        assert not row['plugin_failed'],('Co-op renderer disabled',row)
-        row['native_health']=[list(mirror[at+0x5c:at+0x5f]) for at in (0x300,0x100)]
-        row['vehicle_health']=[mirror[at+0x5c] for at in (0x620,0x200)]
-        row['campaign_health']=mirror[0x445]
-        row['freeze']=mirror[0x410]
-        row['warning']=self.r.read(0x80141bdc,1)[0]
-        row['menu']=list(self.r.read(0x801754a4,2))
-        row['menu_detail']=list(self.r.read(0x801754a0,0x30))
-        row['frontend']=list(self.r.read(0x80173c70,8))
-        row['personal_locks']=[[mirror[at+j] for j in (0x67,0xbc,0xc0,0xc3,0xc4)]
-                               for at in (0x300,0x100)]
-        row['orb_capture']=[mirror[at+0xba] for at in (0x300,0x100)]
-        row['camera_clip']=list(struct.unpack('<6h',self.r.read(0x801419cc,12)))
-        row['bounds']=list(struct.unpack('<4h',self.r.read(0x801419d4,8)))
+        # This harness fixes the enabled co-op profile for the process. Its
+        # diagnostic allocation is stable across native stage loads. Read one
+        # completed mirror and one camera record instead of querying the full
+        # counter catalog and the same RAM separately for every field.
+        if self.diagnostic_address is None:
+            self.diagnostic_address = self.r.diagnostic()
+        mirror = self.r.read(self.diagnostic_address, 0x6d0)
+        if struct.unpack_from('<I', mirror, 0x1c)[0] != 1:
+            raise RuntimeError('This check requires canonical diagnostic snapshots')
+        frame = self.r.request('mod_counters')['frame']
+        camera = list(struct.unpack('<42h', self.r.read(0x801419b0, 0x54)))
+        # The mirror stops outside gameplay; frontend transition fields must
+        # still come from the live shared campaign record.
+        shared = self.r.read(0x801721c0, 0x64)
+        menu = list(self.r.read(0x801754a0, 0x30))
+        row = dict(label=label, frame=frame, mode=list(shared[:4]),
+            stage=shared[12], section=shared[13], checkpoint=shared[0x1d],
+            campaign=mirror[0x443], lives=mirror[0x444], blocked=shared[0x1c],
+            players=[body_state(mirror[at:at+0xe4]) for at in (0x300, 0x100)],
+            camera=camera[:12],
+            plugin_failed=struct.unpack_from('<I', mirror, 12)[0],
+            native_health=[list(mirror[at+0x5c:at+0x5f]) for at in (0x300, 0x100)],
+            vehicle_health=[mirror[at+0x5c] for at in (0x620, 0x200)],
+            campaign_health=mirror[0x445], freeze=mirror[0x410],
+            warning=self.r.read(0x80141bdc, 1)[0], menu=menu[4:6], menu_detail=menu,
+            frontend=list(self.r.read(0x80173c70, 8)),
+            personal_locks=[[mirror[at+j] for j in (0x67, 0xbc, 0xc0, 0xc3, 0xc4)]
+                            for at in (0x300, 0x100)],
+            orb_capture=[mirror[at+0xba] for at in (0x300, 0x100)],
+            camera_clip=camera[14:20], bounds=camera[18:22])
+        assert not row['plugin_failed'], ('Co-op renderer disabled', row)
         if self.watch_enemy is not None:
             row['enemies']=[p for p in self.enemies() if p['type']==self.watch_enemy]
         self.events.append(row)
@@ -2385,7 +2413,7 @@ def main():
                         default=['p2-survivor', 'p1-survivor', 'both', 'both-p2'])
     parser.add_argument('--individual-pausing',action='store_true',help='Use the legacy one-owner menu instead of independent simultaneous menus')
     parser.add_argument('--boss-cooldowns',choices=('per_player','shared'),default='per_player')
-    parser.add_argument('--cases', nargs='+', choices=('door_animation','sigma_story_corridor','sigma_lower_route','sigma_phase3_survivor','double_standing','magma_armor_entry','jet_door','jet_dash','chaser_independence','intro_near_entry','stock_charge_hud','spider_ladder_pair','spider_ladder_survivor','magma_slope_rumble','magma_pillars','magma_quake','sigma_ladder_survivor','intro_bees','magma_giga_death','fmv_transitions','magma_distant_entry','sigma1_doors','sigma2_lasers','fortress_probe','intro_dragon_snapshot','magma_idle_resolution','mushroom_lift_crush','magma_effects_field','magma_effects','intro_dragon_views','intro_effect_corridor','intro_distant_entry','intro_structure_shake','intro_closing_shake','p2_pause_quit','p2_pause_escape','slash_midboss_entry','slash_cannon_origins','owl_cannon_origins','mushroom_midboss_exit','personal_menus','local_pair','local_canvas','jet','jet_intro','bike_probe', 'cyber','handoff_dash','section_health','weapon_cycle','dash_effects','zero_elemental','fire_weakness','initial_arrivals','stationary_arrivals','intro_arrivals','web_walljump','train_background','dialogue_native','cyber_flip_probe','cyber_flip','snow_base_survivor','frost_late_path', 'intro','intro_entry','trail_probe','post_victory_trails','open_airdash','train_visual','door_death','train_return','train_deaths','train_boss','arrival_death','combat','jet_boss',
+    parser.add_argument('--cases', nargs='+', choices=('spider_air_door','spider_door_scenery','sigma_survivor_victory','magma_entry_camera','cyber_air_door','door_animation','sigma_story_corridor','sigma_lower_route','sigma_phase3_survivor','double_standing','magma_armor_entry','jet_door','jet_dash','chaser_independence','intro_near_entry','stock_charge_hud','spider_ladder_pair','spider_ladder_survivor','magma_slope_rumble','magma_pillars','magma_quake','sigma_ladder_survivor','intro_bees','magma_giga_death','fmv_transitions','magma_distant_entry','sigma1_doors','sigma2_lasers','fortress_probe','intro_dragon_snapshot','magma_idle_resolution','mushroom_lift_crush','magma_effects_field','magma_effects','intro_dragon_views','intro_effect_corridor','intro_distant_entry','intro_structure_shake','intro_closing_shake','p2_pause_quit','p2_pause_escape','slash_midboss_entry','slash_cannon_origins','owl_cannon_origins','mushroom_midboss_exit','personal_menus','local_pair','local_canvas','jet','jet_intro','bike_probe', 'cyber','handoff_dash','section_health','weapon_cycle','dash_effects','zero_elemental','fire_weakness','initial_arrivals','stationary_arrivals','intro_arrivals','web_walljump','train_background','dialogue_native','cyber_flip_probe','cyber_flip','snow_base_survivor','frost_late_path', 'intro','intro_entry','trail_probe','post_victory_trails','open_airdash','train_visual','door_death','train_return','train_deaths','train_boss','arrival_death','combat','jet_boss',
                         'mushroom_lift_high_jump','intro_first_drop','mushroom_survivor_colors','marine_dismount','sigma_entry','spider_balance','boss_balance','story_bosses','boss_door_policy','spider_visual','cyber_missiles','spider_hole','victory','dragoon_survivor_reward','diagnostics','audio',
                         'cyber_orb','cyber_course','cyber_course_leader','cyber_indicator','cyber_moving','volcano_probe','ride_armor','volcano_entry','save_loop','second_save_loop','stage_reentry','portrait_exit','portrait_escape','reload_save','enemy_activation','x_armor','spider_capture','storm_survivor_exit','storm_team_exit','storm_exit_race','storm_midboss_exit','intro_platform_leader','teleport_fall','balance_saved_control','balance_saved_slashes','frost_shaft'), default=['jet', 'cyber', 'intro'])
     args = parser.parse_args()

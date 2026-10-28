@@ -84,6 +84,12 @@ void mmx4_coop_split_dragoon_camera_release(uint32_t actor) {
     CHECK(actor==0x8013BED0u && psx_mod_read_byte(actor+5)==3);
     ++dragoon_release_calls;dragoon_release_projected=projected;
 }
+static unsigned sigma_release_model,sigma_release_calls,sigma_release_projected;
+void mmx4_coop_split_sigma_victory_release(uint32_t actor) {
+    CHECK(actor==0x8013BED0u && !psx_mod_read_byte(actor));
+    CHECK(mmx4_coop_combat_actor_context());
+    ++sigma_release_calls;sigma_release_projected=projected;
+}
 static unsigned ai_direct_write,ai_canonical;
 static unsigned ai_expected_campaign;
 static uint8_t saved_campaign;
@@ -504,6 +510,11 @@ uint32_t mmx4_coop_call(CPUState *cpu,uint32_t address,uint32_t a0,uint32_t a1) 
         ai_target_x[seat]=psx_mod_read_word(MMX4_PLAYER+8);
         if(dragoon_release_model) {
             psx_mod_write_byte(a0+5,3);return 0;
+        }
+        if(sigma_release_model) {
+            /* Native8F884 retires the actor after releasing the scene and
+             * writing the ending corridor targets. Publish before restore. */
+            psx_mod_write_byte(a0,0);return 0;
         }
         if(palette_model) {
             if(psx_mod_read_byte(a0+1)==61 && !psx_mod_read_byte(a0+4)) {
@@ -1058,6 +1069,25 @@ static void dragoon_camera_release(void) {
         dragoon_release_model=0;
     }
 }
+static void sigma_victory_camera_release(void) {
+    const uint32_t actor=0x8013BED0u;
+    for(unsigned seat=0;seat<2;++seat)for(unsigned gate=0;gate<6;++gate) {
+        setup_split_actors(0);script_owner=(int)seat;
+        psx_mod_write_byte(actor+0x9C,0);
+        psx_mod_write_byte(MMX4_PLAY+12,gate==4?11:12);
+        psx_mod_write_byte(MMX4_PLAY+13,gate==5?0:1);
+        psx_mod_write_byte(actor+1,gate==1?68:74);
+        psx_mod_write_byte(actor+4,gate==2?1:2);
+        psx_mod_write_byte(actor+5,gate==3?5:6);
+        sigma_release_model=1;sigma_release_calls=0;
+        invoke(0x80021234u);
+        CHECK(sigma_release_calls==(gate==0));
+        if(!gate)CHECK(sigma_release_projected==seat);
+        CHECK(actor_updates[seat]==1 && !actor_updates[seat^1u]);
+        CHECK(!projected && mmx4_coop_combat_snapshot_ready());
+        sigma_release_model=0;
+    }
+}
 static void owl_grab_release(void) {
     const uint32_t actor=0x8013BED0u;
     const uint8_t commands[]={0,1,0xFE,0xFF};
@@ -1493,6 +1523,7 @@ int main(void) {
     slash_intro_leader();
     intro_entry_leader();
     dragoon_camera_release();
+    sigma_victory_camera_release();
     owl_grab_release();
     vehicle_secondary_ownership();
     spider_capture_ownership();

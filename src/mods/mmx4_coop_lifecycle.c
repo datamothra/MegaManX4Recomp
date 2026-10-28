@@ -2269,8 +2269,11 @@ static int scene_actor_canonical(CPUState *cpu,uint32_t address) {
     unsigned train=address==0x800D8648u || address==0x800D9218u || address==0x800D9C84u;
     unsigned refight_portal=address==0x800C7164u;
     unsigned sigma_entrance=address==0x800D2A38u;
+    unsigned sigma_ending=address==0x800D3048u;
     if(sigma_entrance && (psx_mod_local_view_scope() ||
        psx_mod_read_byte(PLAY+12)!=12 || psx_mod_read_byte(PLAY+13)))return 0;
+    if(sigma_ending && (psx_mod_local_view_scope() ||
+       psx_mod_read_byte(PLAY+12)!=12 || psx_mod_read_byte(PLAY+13)!=1))return 0;
     if(refight_portal && (psx_mod_local_view_scope() ||
        psx_mod_read_byte(PLAY+12)!=12 || psx_mod_read_byte(PLAY+13) ||
        !door_pool_actor(actor) || psx_mod_read_byte(actor+1)!=27))return 0;
@@ -2280,13 +2283,13 @@ static int scene_actor_canonical(CPUState *cpu,uint32_t address) {
     }
     if(record)owner=record->owner;
     else if((address==0x800D0374u || address==0x800D1248u || address==0x800D1284u ||
-             sigma_entrance) && script_active)
+             sigma_entrance || sigma_ending) && script_active)
         owner=script_owner;
     else if(!mmx4_coop_alive(0) && mmx4_coop_alive(1))owner=1;
-    else if(sigma_entrance && mmx4_coop_alive(1) &&
-            (int16_t)psx_mod_read_half(PLAYER+10)<2321 &&
-            (int16_t)(body_word(mmx4_coop_second_body(),8)>>16)>=2321) {
-        /* D2420 waits for X>=2321 before starting the original scene.
+    else if((sigma_entrance || sigma_ending) && mmx4_coop_alive(1) &&
+            (int16_t)psx_mod_read_half(PLAYER+10)<(sigma_ending?1761:2321) &&
+            (int16_t)(body_word(mmx4_coop_second_body(),8)>>16)>=(sigma_ending?1761:2321)) {
+        /* D2420 waits for X>=2321; the ending's D2B9C waits for X>=1761.
          * Either living entrant may reach it first. Once admitted, the
          * scene record above keeps that owner through text and release. */
         owner=1;
@@ -2645,7 +2648,7 @@ static int nonowner_controls(CPUState *cpu,uint32_t address) {
     if(both_door_scope() && both_door.serial==script_serial && both_door.phase==1 &&
        psx_mod_read_byte(PLAY+0x10) && !psx_mod_local_view_scope() &&
        mmx4_coop_alive(seat) && psx_mod_read_byte(PLAYER+4)==1 &&
-       !psx_mod_read_byte(PLAYER+0xC5) && !psx_mod_read_byte(PLAYER+0x67) &&
+       !psx_mod_read_byte(PLAYER+0xC5) &&
        !psx_mod_read_byte(PLAYER+0xBC) && !psx_mod_read_byte(PLAYER+0xBD)) {
         control_guard=1;
         /* P2's body can follow the door actor in this update. Initialize its
@@ -2659,6 +2662,10 @@ static int nonowner_controls(CPUState *cpu,uint32_t address) {
         unsigned program=psx_mod_read_byte(PLAYER+0x17);
         if(program==9 || program==17)
             mmx4_coop_call(cpu,0x800350A4u,PLAYER,program==9?8u:16u);
+        /* Airborne admission retains native +67 (FF during a dash-jump).
+         * C4 already admitted this body to action19; that flight flag must
+         * not skip C1C24's terrain-box suspension and crush the passenger
+         * against the still-sealed doorway when scripted movement begins. */
         psx_mod_write_word(PLAYER+0x68,0);
         uint32_t result=mmx4_coop_call(cpu,address,cpu->gpr[4],cpu->gpr[5]);
         /* The shared opening lock bypasses both native action dispatchers.
@@ -2840,6 +2847,10 @@ PSX_MOD_CONSTRUCTOR(mmx4_register_coop_lifecycle) {
      * with the surviving entrant; redirecting only 36AE4 cannot admit P2
      * while the native predicate still sees P1's corpse at the arrival. */
     psx_mod_register_function_filter_plugin(ID,0x800D2A38u,scene_actor);
+    /* Final Sigma releases the arena before D2B9C waits for the ending
+     * entrant. Project this complete D3048 controller onto that survivor,
+     * including its camera wait, dialogue and native stage completion. */
+    psx_mod_register_function_filter_plugin(ID,0x800D3048u,scene_actor);
     psx_mod_register_function_filter_plugin(ID,0x800CE894u,cyber_assessment);
     /* Act1 Dragoon first issues action15, then waits for PLAYER+C0=FF.
      * A P2-led door can withdraw P1 before this actor runs. Keep its native

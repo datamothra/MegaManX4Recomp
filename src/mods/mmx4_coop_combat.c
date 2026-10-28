@@ -838,6 +838,10 @@ static void update_actor(CPUState *cpu,uint32_t address) {
     unsigned dragoon_intro=actor_pool==0x80021234u &&
         psx_mod_read_byte(actor+1)==65 && psx_mod_read_byte(actor+4)==1 &&
         psx_mod_read_byte(actor+5)==2;
+    unsigned sigma_victory=actor_pool==0x80021234u &&
+        psx_mod_read_byte(MMX4_PLAY+12)==12 && psx_mod_read_byte(MMX4_PLAY+13)==1 &&
+        psx_mod_read_byte(actor+1)==74 && psx_mod_read_byte(actor+4)==2 &&
+        psx_mod_read_byte(actor+5)==6;
     uint32_t stage_colors=mushroom_palette?psx_mod_read_word(0x1F800024u):0;
     uint32_t stage_palette=mushroom_palette?psx_mod_read_word(0x1F800028u):0;
     uint8_t scene_camera[0xFC];
@@ -873,6 +877,7 @@ static void update_actor(CPUState *cpu,uint32_t address) {
             if(dragoon_intro && psx_mod_read_byte(actor+4)==1 &&
                psx_mod_read_byte(actor+5)==3)
                 mmx4_coop_split_dragoon_camera_release(actor);
+            if(sigma_victory)mmx4_coop_split_sigma_victory_release(actor);
             if(web && !captured && psx_mod_read_word(actor+0x8C)==3)
                 secondary_owner[(actor-SECONDARY_POOL)/SECONDARY_STRIDE]=(uint8_t)(target+1);
             psx_mod_counter_add(target?"mmx4.coop.p2-native-ai":"mmx4.coop.p1-native-ai",1);
