@@ -13,14 +13,20 @@ cd MegaManX4Recomp
 ```
 
 Builds use CMake, a C/C++ toolchain, Python, SDL2 and OpenGL. Windows release
-builds use MSYS2/MinGW; Linux builds use GCC and Ninja. Follow the pinned
+builds use MSYS2/MinGW; Linux builds use GCC and Ninja. macOS builds use Apple
+clang and Ninja with Homebrew packages: `brew install cmake ninja pkgconf python
+sdl2-compat freetype harfbuzz openssl`, plus `vulkan-headers vulkan-loader
+molten-vk shaderc` for the Vulkan renderer. The release configuration below
+builds and passes `ctest` on macOS 26 with Apple clang 21; the clang in macOS
+13's Command Line Tools (14) cannot compile the recompiler. Follow the pinned
 [framework's build instructions](../psxrecomp-v4/README.md) for prerequisites
 and BIOS generation. OpenBIOS is bundled and can be generated without a retail
 BIOS dump. Do not rely on generated output from a different framework revision.
 
 Supply a Mega Man X4 USA disc matching [DISC.md](../DISC.md). Keep your `.cue`
 and `.bin` files under the ignored `mmx4/` directory and extract its
-`SLUS_005.61` executable with the framework's `tools/extract_psx_exe.py`.
+`SLUS_005.61` executable with the framework's `tools/prepare_disc.py --config
+game.toml --project-root . --out-dir mmx4 <your .cue>`.
 Do not convert the source disc to a cooked 2048-byte ISO: X4 uses XA sectors.
 
 Build the framework's `psxrecomp-game` and `psxrecomp-bios` emitters first.

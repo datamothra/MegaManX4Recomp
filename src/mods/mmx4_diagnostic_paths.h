@@ -11,6 +11,8 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#elif defined(__APPLE__)
+#include <mach-o/dyld.h>
 #endif
 
 inline std::filesystem::path mmx4_diagnostic_application_directory() {
@@ -28,6 +30,13 @@ inline std::filesystem::path mmx4_diagnostic_application_directory() {
         auto path=std::filesystem::u8path(appimage);
         if(path.is_absolute())return path.parent_path();
     }
+#if defined(__APPLE__)
+    std::array<char,4096> path{};
+    uint32_t n=(uint32_t)path.size();
+    if(_NSGetExecutablePath(path.data(),&n)!=0)throw std::runtime_error("cannot locate executable");
+    return std::filesystem::canonical(path.data()).parent_path();
+#else
     return std::filesystem::read_symlink("/proc/self/exe").parent_path();
+#endif
 #endif
 }
