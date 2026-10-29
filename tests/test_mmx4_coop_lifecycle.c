@@ -565,11 +565,12 @@ uint32_t mmx4_coop_call(CPUState *cpu,uint32_t address,uint32_t a0,uint32_t a1) 
         }
         break;
     case 0x800D2A38:
+    case 0x800D3048:
         ++scene_calls;observed_campaign=psx_mod_read_byte(MMX4_PLAY+0x43);
         /* Native D2420 reads the entrant before issuing its scene command.
          * A later callback must read that same body's completion marker. */
         if(!psx_mod_read_byte(a0+6)) {
-            if((int16_t)psx_mod_read_half(MMX4_PLAYER+10)>=2321) {
+            if((int16_t)psx_mod_read_half(MMX4_PLAYER+10)>=(address==0x800D3048u?1761:2321)) {
                 psx_mod_write_byte(a0+6,1);
                 mmx4_coop_call(cpu,0x80036AE4u,0x14,0x40);
             }
@@ -2921,6 +2922,30 @@ int main(void) {
     psx_mod_write_byte(PLAY+13,0);local_view=1;
     CHECK(!scene_actor(&cpu,0x800D2A38u));local_view=0;
 
+    /* The post-Sigma ending has a separate native entrant predicate.
+     * A corpse at the upper fight must not prevent P2's ending scene. */
+    for(unsigned campaign=0;campaign<2;++campaign) {
+        reset();psx_mod_write_byte(PLAY+12,12);psx_mod_write_byte(PLAY+13,1);
+        psx_mod_write_byte(PLAY+0x43,campaign);
+        psx_mod_write_byte(actor,1);psx_mod_write_byte(actor+4,1);
+        psx_mod_write_byte(PLAYER+4,3);psx_mod_write_byte(PLAYER+0x5C,0);
+        psx_mod_write_word(PLAYER+8,1127u<<16);put32(p2+8,1784u<<16);
+        cpu.gpr[4]=actor;scene_calls=0;
+        mmx4_coop_call(&cpu,0x800D3048u,actor,0);
+        CHECK(scene_calls==1 && script_active && script_owner==1 && p2[0xC0]==1);
+        CHECK(!psx_mod_read_byte(PLAYER+0xC0) && !psx_mod_read_byte(PLAYER+0x5C));
+        CHECK(psx_mod_read_word(PLAYER+8)==1127u<<16 && observed_campaign==campaign);
+        CHECK(psx_mod_read_byte(PLAY+0x43)==campaign && !projected);
+        p2[0xC0]=0xFF;cpu.gpr[4]=actor;
+        mmx4_coop_call(&cpu,0x800D3048u,actor,0);
+        CHECK(!script_active && !p2[0xC0] && !projected);
+        CHECK(psx_mod_read_byte(PLAYER+4)==3 && !psx_mod_read_byte(PLAYER+0x5C));
+    }
+    reset();cpu.gpr[4]=actor;CHECK(!scene_actor(&cpu,0x800D3048u));
+    psx_mod_write_byte(PLAY+12,12);CHECK(!scene_actor(&cpu,0x800D3048u));
+    psx_mod_write_byte(PLAY+13,1);local_view=1;
+    CHECK(!scene_actor(&cpu,0x800D3048u));local_view=0;
+
     /* P2 may trigger a native portal first. Its scene sees the original
      * campaign, while only P2 receives native body/action writes. */
     reset();psx_mod_write_byte(actor,1);psx_mod_write_byte(actor+4,1);
@@ -3169,6 +3194,19 @@ int main(void) {
     /* Both retain native action19 and disabled terrain boxes. Inputs cannot
      * move either body; one shared door tick supplies the original A400 step
      * to each living participant, then waits for safe camera commitment. */
+    for(unsigned seat=0;seat<2;++seat) {
+        CHECK(!open_both_door(&cpu,actor));
+        both_door.phase=1;psx_mod_write_byte(PLAY+0x10,1);
+        if(seat)mmx4_coop_enter_second();
+        psx_mod_write_byte(PLAYER+0x67,255); /* Native airborne admission. */
+        psx_mod_write_word(PLAYER+0x68,0x800F8BC8u);
+        uint32_t x=psx_mod_read_word(PLAYER+8),y=psx_mod_read_word(PLAYER+12);
+        door_control(&cpu,0,0);
+        CHECK(!psx_mod_read_word(PLAYER+0x68));
+        CHECK(psx_mod_read_word(PLAYER+8)==x && psx_mod_read_word(PLAYER+12)==y);
+        CHECK(psx_mod_read_byte(PLAYER+0x67)==255 && psx_mod_read_byte(PLAYER+0xC4)==255);
+        if(seat)mmx4_coop_leave_second();
+    }
     CHECK(!open_both_door(&cpu,actor));
     for(unsigned seat=0;seat<2;++seat) {
         if(seat)mmx4_coop_enter_second();

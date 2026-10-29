@@ -4,10 +4,11 @@ from coop_debug import capture_pair
 from coop_fortress_followup_scenario import cameras,actors
 
 
-def intro_bees(s):
+def intro_bees(s, *, leaders=(1,0), variants=(1,10,11), continue_approach=False):
     results=[];r=s.r
-    for leader in (1,0):
+    for leader in leaders:
         for variant,start,threshold,expected in ((1,560,592,{703}),(10,2970,3040,{3167,3296}),(11,3260,3296,{3423})):
+            if variant not in variants:continue
             s.load(0,1,0 if variant==1 else 1);r.fixture(5,3)
             r.teleport(leader,start,300 if variant==1 else 230)
             time.sleep(1)
@@ -31,6 +32,8 @@ def intro_bees(s):
             spawned={int(e['addr'],16)+0x80000000-1 for e in writes if e['pc']=='0x800BF3D0'}
             visible=[];deadline=time.monotonic()+4
             while spawned and time.monotonic()<deadline:
+                if continue_approach:
+                    r.input(0xbfdf,leader);time.sleep(.12);r.release()
                 time.sleep(.05)
                 row=s.sample(f'bees-visible-{leader}-{variant}');row['actors']=actors(s);rows.append(row)
                 visible.extend(a for a in row['actors'] if int(a['address'],16) in spawned and

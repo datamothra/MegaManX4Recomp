@@ -838,6 +838,17 @@ static void jungle_backgrounds(CPUState *cpu) {
     psx_mod_write_byte(saved_camera(1,1)+4,5);psx_mod_write_half(saved_camera(1,1)+0x40,2912);
     invoke(cpu,0x800D8ED4u);invoke(cpu,0x800D8ED4u);
     CHECK(psx_mod_read_half(saved_camera(1,1)+0x40)==40 && psx_mod_read_half(saved_camera(1,1)+10)==40);
+    /* Both-door scripts retain independent cameras. Their mode5 scenery
+     * must keep its native parallax while the shared door advances once. */
+    actor_position(MMX4_PLAYER,4700,1467);second_position(4720,1466);
+    psx_mod_write_half(saved_camera(0,0)+10,4500);psx_mod_write_half(saved_camera(0,0)+14,1280);
+    psx_mod_write_half(saved_camera(1,0)+10,4520);psx_mod_write_half(saved_camera(1,0)+14,1280);
+    script_owner=0;paired_door=1;calls=jungle_calls;private_calls=jungle_private_calls;
+    invoke(cpu,0x800D8ED4u);invoke(cpu,0x800D8ED4u);
+    CHECK(jungle_calls==calls+2 && jungle_private_calls==private_calls+4);
+    CHECK(psx_mod_read_half(saved_camera(0,1)+10)==4487);
+    CHECK(psx_mod_read_half(saved_camera(1,1)+10)==4502);
+    script_owner=-1;paired_door=0;
     /* Checkpoint/section reset discards the prior phases. A late first
      * encounter at native state1 still initializes this view's mode. */
     mmx4_coop_split_reset();mmx4_coop_split_camera_prepare(0);
@@ -943,23 +954,68 @@ static void sigma_drop_release(CPUState *cpu) {
     }
     split=ready=1;local_scope=projected=actor_context=0;
 }
+static void sigma_victory_release(CPUState *cpu) {
+    (void)cpu;
+    const uint32_t actor=0x8013BED0u;
+    for(unsigned test=0;test<15;++test) {
+        script_owner=-1;split=ready=1;local_scope=projected=actor_context=0;
+        psx_mod_write_byte(MMX4_PLAY,6);psx_mod_write_byte(MMX4_PLAY+1,0);
+        psx_mod_write_byte(MMX4_PLAY+12,12);psx_mod_write_byte(MMX4_PLAY+13,1);
+        for(unsigned i=0;i<0xFC;++i)psx_mod_write_byte(CAMERA+i,(uint8_t)(i+17));
+        psx_mod_write_half(CAMERA+0x24,1104);psx_mod_write_half(CAMERA+0x26,1104);
+        psx_mod_write_half(CAMERA+0x28,512);psx_mod_write_half(CAMERA+0x2A,512);
+        mmx4_coop_split_reset();mmx4_coop_split_camera_prepare(0);
+        /* Native8F884 has released its scene, widened the ending corridor,
+         * and retired the final actor, before its P2 projection is restored. */
+        psx_mod_write_byte(actor,0);psx_mod_write_half(CAMERA+0x24,1152);
+        if(test==1)projected=actor_context=1;
+        if(test==2)local_scope=1;
+        if(test==3)split=0;
+        if(test==4)ready=0;
+        if(test==5)psx_mod_write_byte(MMX4_PLAY+12,11);
+        if(test==6)psx_mod_write_byte(MMX4_PLAY+13,0);
+        if(test==7)psx_mod_write_byte(actor,1);
+        if(test==8)psx_mod_write_half(CAMERA+0x24,1153);
+        if(test==9)psx_mod_write_half(CAMERA+0x26,1105);
+        if(test==10)psx_mod_write_half(saved_camera(1,0)+0x28,2048);
+        if(test==11)psx_mod_write_half(saved_camera(0,0)+0x26,1088);
+        if(test==12)projected=1;
+        if(test==14)psx_mod_write_word(0x801F0000u,0);
+        uint8_t before[2][0xFC],canonical[0xFC];
+        for(unsigned seat=0;seat<2;++seat)for(unsigned i=0;i<0xFC;++i)
+            before[seat][i]=psx_mod_read_byte(saved_camera(seat,0)+i);
+        for(unsigned i=0;i<0xFC;++i)canonical[i]=psx_mod_read_byte(CAMERA+i);
+        mmx4_coop_split_sigma_victory_release(actor+(test==13));
+        for(unsigned seat=0;seat<2;++seat)for(unsigned i=0;i<0xFC;++i) {
+            unsigned admitted=test<2 || (test==10 && !seat) || (test==11 && seat);
+            unsigned expected=before[seat][i];
+            if(admitted && (i==0x24 || i==0x25))expected=canonical[i];
+            CHECK(psx_mod_read_byte(saved_camera(seat,0)+i)==expected);
+        }
+        for(unsigned i=0;i<0xFC;++i)CHECK(psx_mod_read_byte(CAMERA+i)==canonical[i]);
+        CHECK(mmx4_coop_split_snapshot_ready());
+    }
+    split=ready=1;local_scope=projected=actor_context=0;
+}
 static void dragoon_camera_release(CPUState *cpu) {
     (void)cpu;
     const uint32_t actor=0x8013BED0u;
-    for(unsigned test=0;test<19;++test) {
+    for(unsigned main_fight=0;main_fight<2;++main_fight)
+    for(unsigned test=0;test<(main_fight?2u:19u);++test) {
+        uint16_t maximum=main_fight?5264u:432u,minimum=main_fight?5104u:272u;
         script_owner=-1;split=ready=1;local_scope=projected=actor_context=0;
         psx_mod_write_byte(MMX4_PLAY,6);psx_mod_write_byte(MMX4_PLAY+1,0);
-        psx_mod_write_byte(MMX4_PLAY+12,12);psx_mod_write_byte(MMX4_PLAY+13,0);
+        psx_mod_write_byte(MMX4_PLAY+12,main_fight?4:12);psx_mod_write_byte(MMX4_PLAY+13,main_fight?1:0);
         psx_mod_write_byte(MMX4_PLAY+0x1D,2);
         for(unsigned i=0;i<0xFC;++i)psx_mod_write_byte(CAMERA+i,(uint8_t)(i+17));
-        psx_mod_write_half(CAMERA+0x24,432);psx_mod_write_half(CAMERA+0x26,432);
+        psx_mod_write_half(CAMERA+0x24,maximum);psx_mod_write_half(CAMERA+0x26,maximum);
         psx_mod_write_half(CAMERA+0x28,1531);psx_mod_write_half(CAMERA+0x2A,1531);
         psx_mod_write_byte(CAMERA+0x48,8);
         mmx4_coop_split_reset();mmx4_coop_split_camera_prepare(0);
         psx_mod_write_byte(actor,1);psx_mod_write_byte(actor+1,65);
         psx_mod_write_byte(actor+4,1);psx_mod_write_byte(actor+5,3);
         /* Original7E400/7E424/7E430 have completed, before owner restore. */
-        psx_mod_write_half(CAMERA+0x26,272);psx_mod_write_byte(CAMERA+0x48,4);
+        psx_mod_write_half(CAMERA+0x26,minimum);psx_mod_write_byte(CAMERA+0x48,4);
         if(test==1)projected=actor_context=1;
         if(test==2)local_scope=1;
         if(test==3)split=0;
@@ -986,8 +1042,8 @@ static void dragoon_camera_release(CPUState *cpu) {
         for(unsigned seat=0;seat<2;++seat)for(unsigned i=0;i<0xFC;++i) {
             unsigned admitted=test<2 || ((test==14 || test==15) && !seat);
             unsigned expected=before[seat][i];
-            if(admitted && i==0x26)expected=0x10;
-            if(admitted && i==0x27)expected=1;
+            if(admitted && i==0x26)expected=minimum&255u;
+            if(admitted && i==0x27)expected=minimum>>8;
             if(admitted && i==0x48)expected=4;
             CHECK(psx_mod_read_byte(saved_camera(seat,0)+i)==expected);
         }
@@ -2287,6 +2343,7 @@ int main(void) {
     CHECK(mmx4_coop_split_snapshot_ready());
     destructible_camera_unlocks(&cpu);
     dragoon_camera_release(&cpu);
+    sigma_victory_release(&cpu);
     sigma_drop_release(&cpu);
     owl_midboss_unlocks(&cpu);
     mushroom_midboss_unlocks(&cpu);

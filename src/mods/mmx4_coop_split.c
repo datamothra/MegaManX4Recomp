@@ -651,34 +651,54 @@ void mmx4_coop_split_sigma_drop_release(uint32_t actor) {
         psx_mod_counter_add("mmx4.coop.split-sigma-drop-releases",1);
     }
 }
-void mmx4_coop_split_dragoon_camera_release(uint32_t actor) {
-    if(!available() || !psx_mod_read_word(state) ||
-       psx_mod_read_byte(MMX4_PLAY+12)!=12 || psx_mod_read_byte(MMX4_PLAY+13) ||
-       psx_mod_read_byte(MMX4_PLAY+0x1D)!=2 ||
-       actor<0x8013BED0u || actor>=0x8013BED0u+48u*0x9Cu ||
-       (actor-0x8013BED0u)%0x9Cu || !psx_mod_read_byte(actor) ||
-       psx_mod_read_byte(actor+1)!=65 || psx_mod_read_byte(actor+4)!=1 ||
-       psx_mod_read_byte(actor+5)!=3 ||
-       psx_mod_read_half(CAMERA+0x24)!=432 ||
-       psx_mod_read_half(CAMERA+0x26)!=272 ||
-       psx_mod_read_byte(CAMERA+0x48)!=4)return;
-    /* Retail7E400/7E424/7E430 writes target min272/max432 and follow step4
-     * after36B18 has ended the shared intro. P2's saved view still has the
-     * closed432..432 enclosure; a projected owner can lose the writes for
-     * both views. Publish exactly these targets/tuning to that enclosure.
-     * Keep origins, current limits, vertical rooms and native easing intact;
-     * hidden arrivals also need the release when they become visible again. */
+static void publish_camera_enclosure_release(uint16_t enclosure,int follow,const char *counter) {
     for(unsigned seat=0;seat<2;++seat) {
         uint32_t shadow=state+16u+seat*CAMERA_BYTES;
-        if(psx_mod_read_half(shadow+0x24)!=432 ||
-           psx_mod_read_half(shadow+0x26)!=432 ||
+        if(psx_mod_read_half(shadow+0x24)!=enclosure ||
+           psx_mod_read_half(shadow+0x26)!=enclosure ||
            psx_mod_read_half(shadow+0x28)!=psx_mod_read_half(CAMERA+0x28) ||
            psx_mod_read_half(shadow+0x2A)!=psx_mod_read_half(CAMERA+0x2A))continue;
         psx_mod_write_half(shadow+0x24,psx_mod_read_half(CAMERA+0x24));
         psx_mod_write_half(shadow+0x26,psx_mod_read_half(CAMERA+0x26));
-        psx_mod_write_byte(shadow+0x48,psx_mod_read_byte(CAMERA+0x48));
-        psx_mod_counter_add("mmx4.coop.split-dragoon-camera-releases",1);
+        if(follow)psx_mod_write_byte(shadow+0x48,psx_mod_read_byte(CAMERA+0x48));
+        psx_mod_counter_add(counter,1);
     }
+}
+void mmx4_coop_split_sigma_victory_release(uint32_t actor) {
+    if(!available() || !psx_mod_read_word(state) ||
+       psx_mod_read_byte(MMX4_PLAY+12)!=12 || psx_mod_read_byte(MMX4_PLAY+13)!=1 ||
+       actor<0x8013BED0u || actor>=0x8013BED0u+48u*0x9Cu ||
+       (actor-0x8013BED0u)%0x9Cu || psx_mod_read_byte(actor) ||
+       psx_mod_read_half(CAMERA+0x24)!=1152 ||
+       psx_mod_read_half(CAMERA+0x26)!=1104)return;
+    /* Final Sigma's native8F884 releases36B18 before8F8C4..8F8D8 widens
+     * the ending corridor and retires this actor. Save those completed writes
+     * before restoring a projected survivor; stale1104..1104 shadows otherwise
+     * prevent that hero reaching the native ending trigger. */
+    publish_camera_enclosure_release(1104,0,"mmx4.coop.split-sigma-victory-camera-releases");
+}
+void mmx4_coop_split_dragoon_camera_release(uint32_t actor) {
+    unsigned stage=psx_mod_read_byte(MMX4_PLAY+12),section=psx_mod_read_byte(MMX4_PLAY+13);
+    unsigned main_fight=stage==4 && section==1;
+    unsigned refight=stage==12 && !section && psx_mod_read_byte(MMX4_PLAY+0x1D)==2;
+    uint16_t maximum=main_fight?5264u:432u,minimum=main_fight?5104u:272u;
+    if(!available() || !psx_mod_read_word(state) ||
+       (!main_fight && !refight) ||
+       actor<0x8013BED0u || actor>=0x8013BED0u+48u*0x9Cu ||
+       (actor-0x8013BED0u)%0x9Cu || !psx_mod_read_byte(actor) ||
+       psx_mod_read_byte(actor+1)!=65 || psx_mod_read_byte(actor+4)!=1 ||
+       psx_mod_read_byte(actor+5)!=3 ||
+       psx_mod_read_half(CAMERA+0x24)!=maximum ||
+       psx_mod_read_half(CAMERA+0x26)!=minimum ||
+       psx_mod_read_byte(CAMERA+0x48)!=4)return;
+    /* Retail7E400/7E424/7E430 writes the authored room targets and follow step4
+     * after36B18 has ended the shared intro. P2's saved view still has the
+     * closed432..432 enclosure; a projected owner can lose the writes for
+     * both views. This also affects the main fight's5264..5264 intro box.
+     * Publish exactly these targets/tuning to that enclosure.
+     * Keep origins, current limits, vertical rooms and native easing intact;
+     * hidden arrivals also need the release when they become visible again. */
+    publish_camera_enclosure_release(maximum,1,"mmx4.coop.split-dragoon-camera-releases");
 }
 static int mushroom_lift_camera(CPUState *cpu,uint32_t address) {
     uint32_t actor=cpu->gpr[4];
@@ -869,10 +889,12 @@ static int jungle_background(CPUState *cpu,uint32_t address) {
     }
     if(!available())return 0;
     unsigned slot=(actor-TRAIN_POOL)/TRAIN_ACTOR_BYTES;
-    if(mmx4_coop_lifecycle_script_owner()>=0) {
+    if(mmx4_coop_lifecycle_script_owner()>=0 && !mmx4_coop_lifecycle_paired_door()) {
         /* Shared scenes replace complete camera records. Their mode/offset
          * may belong to the other region, so initialize each private phase
-         * again when ordinary independent follow resumes. */
+         * again when ordinary independent follow resumes. Paired doors retain
+         * independent views: D9138 must still advance each mode5 parallax
+         * origin or the corridor scenery follows P2 across the boss room. */
         for(unsigned seat=0;seat<2;++seat)
             psx_mod_write_byte(state+JUNGLE_OFFSET+(seat*TRAIN_SLOTS+slot)*TRAIN_ACTOR_BYTES,0);
         return 0;

@@ -1,4 +1,19 @@
-# Mega Man X4 Recompiled - 1.0.15 Stable Public Beta
+# Mega Man X4 Recompiled - 1.0.16 Stable Public Beta
+
+- Fix airborne participants being crushed during Both-player boss-door entry,
+  including Cyber Peacock and Web Spider.
+- Fix the camera staying enclosed when P2 starts Magma Dragoon's boss fight.
+- Fix the final Sigma victory camera release and surviving P2's ending trigger.
+- Apply native screen flashes and fades to both heroes and their effects,
+  including Sigma's full-screen white explosion.
+- Keep Web Spider's background parallax moving independently through paired doors.
+- Let either leading hero activate the outdoor opening-stage flying swarm.
+
+Diagnostic recording remains optional and off by default. Native memory-card
+saves carry forward. All netplay players must update. Four Player Co-op and the
+paused X1 character replacements remain separate from this stable release.
+
+## Previous v1.0.15 Stable Public Beta
 
 - Both-player boss doors now keep both heroes under native scripted control until they finish entering. Releasing input or trying to retreat, jump or fire no longer leaves a hero behind or the door open.
 - Each hero advances the appropriate native walk/run or dash animation during entry, including while waiting for the opening animation.

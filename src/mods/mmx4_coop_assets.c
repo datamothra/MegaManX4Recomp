@@ -2,6 +2,17 @@
 #include <string.h>
 static uint16_t u16(const uint8_t *p) { return (uint16_t)(p[0]|p[1]<<8); }
 static uint32_t u32(const uint8_t *p) { return (uint32_t)u16(p)|(uint32_t)u16(p+2)<<16; }
+uint16_t mmx4_coop_palette_lighting(uint16_t color,const uint16_t amounts[3],unsigned subtract) {
+    if(!color)return 0; /* Native leaves transparent palette entries alone. */
+    uint16_t result=color&0x8000u;
+    for(unsigned channel=0;channel<3;++channel) {
+        unsigned mask=31u<<(channel*5u),value=color&mask,amount=amounts[channel];
+        if(subtract&(1u<<channel))value=amount>value?0:value-amount;
+        else {value+=amount;if(value>mask)value=mask;}
+        result|=(uint16_t)value;
+    }
+    return result;
+}
 int mmx4_coop_character_palette_offset(uint16_t clut) {
     /* Native upload rectangle 800F1658 is (0,480,256,8), whereas encoded
      * PSX CLUT rows have a 1024-pixel stride. Only its first two rows are

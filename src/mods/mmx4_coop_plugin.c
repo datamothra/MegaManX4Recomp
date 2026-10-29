@@ -989,6 +989,30 @@ static int development_movie_observer(CPUState *cpu,uint32_t address) {
 static uint32_t character_palette(unsigned character) {
     return character==counterpart?assets[character].palette:psx_mod_read_word(SCRATCH+0x28);
 }
+static void character_palette_colors(unsigned character,unsigned offset,uint16_t colors[16]) {
+    uint8_t source[32];capture(character_palette(character)+offset,source,sizeof source);
+    /* Both character banks are native source COLs.8002A484 lights them into
+     * the shared working palette at80141F70; private immutable textures must
+     * consume that same transform instead of baking the unlit source colors.
+     * Keep native per-CLUT enable bits, transparency and STP. No palette or
+     * gameplay writes are made, and changed colors already key the cache. */
+    unsigned lit=psx_mod_read_word(0x8013E188u)&(0x80000000u>>(offset/32u));
+    uint16_t amounts[3]={0,0,0};unsigned subtract=0;
+    if(lit) {
+        amounts[0]=psx_mod_read_half(0x80175EA0u);
+        amounts[1]=psx_mod_read_half(0x80141BE6u);
+        amounts[2]=psx_mod_read_half(0x8013E1BEu);
+        if(amounts[0]|amounts[1]|amounts[2])
+            subtract=!!psx_mod_read_byte(0x80175E9Cu)|
+                (!!psx_mod_read_byte(0x80141BE4u)<<1)|
+                (!!psx_mod_read_byte(0x8013E1BCu)<<2);
+    }
+    for(unsigned i=0;i<16;++i) {
+        uint16_t color=(uint16_t)(source[i*2]|source[i*2+1]<<8);
+        colors[i]=(amounts[0]|amounts[1]|amounts[2])?
+            mmx4_coop_palette_lighting(color,amounts,subtract):color;
+    }
+}
 static int decode_bank(const SpriteBank *bank,uint8_t decoded[32768]) {
     if(!bank->tiles || bank->tiles>256 || bank->variant>2)return 0;
     unsigned character=bank->variant==2;
@@ -1037,7 +1061,8 @@ static uint16_t sprite_bank(unsigned character,uint32_t table,unsigned frame,uin
     if(tile!=UINT16_MAX && !mmx4_coop_sprite_atlas_tile(tiles,tile,&tile,atlas_uv))return 0;
     int palette_offset=mmx4_coop_character_palette_offset(clut);
     if(palette_offset>=0) {
-        capture(character_palette(character)+(uint32_t)palette_offset,colors,sizeof colors);
+        uint16_t lit[16];character_palette_colors(character,(unsigned)palette_offset,lit);
+        for(unsigned i=0;i<16;++i) {colors[i*2]=(uint8_t)lit[i];colors[i*2+1]=(uint8_t)(lit[i]>>8);}
     }else {
         /* Capsule upgrade effects reuse character geometry with shared
          * animation CLUTs (e.g.78C0). Those colors are outside the private
@@ -1105,8 +1130,9 @@ static uint16_t ui_tile(unsigned character,uint16_t page,uint16_t clut,uint16_t 
     unsigned cx=(clut&63)*16,cy=clut>>6;
     const uint16_t *vram=gpu_get_vram();
     int palette_offset=mmx4_coop_character_palette_offset(clut);
-    for(unsigned i=0;i<16;++i)colors[i]=private_colors && palette_offset>=0?
-        psx_mod_read_half(character_palette(character)+(uint32_t)palette_offset+i*2):vram[cy*1024+cx+i];
+    if(private_colors && palette_offset>=0)
+        character_palette_colors(character,(unsigned)palette_offset,colors);
+    else for(unsigned i=0;i<16;++i)colors[i]=vram[cy*1024+cx+i];
     for(unsigned i=0;i<*count;++i) {
         UiBank *b=&cache[i];
         if(b->character==character && b->page==page && b->clut==clut && b->uv==uv && !memcmp(b->colors,colors,32))return b->id;
