@@ -118,13 +118,11 @@ as defeating both. P1 remains dead through the native drop, final defeat,
 dialogue and ending approach. No result flags or scene phases are supplied.
 Protection prevents incidental combat damage but leaves native lethal terrain
 active; movement up the final exit steps and ending admission use real input.
-The final Sigma ending handoff currently passes native qualification with
-X as P2. Zero's extra combat automation is unqualified: a short melee setup
-entered lethal suction terrain, and a safe-ground Ryuenjin attempt preserved
-health but did not connect defeating hits within its bound. Neither attempt
-reached the victory scene or establishes an ending failure. Both campaigns'
-ending-owner projection is covered by lifecycle units. Full ending movie and
-credits playback are not claimed.
+The first qualification passed with X as P2. Subsequent native validation
+also passes with Zero as P2, using short saber attacks followed by a retreat
+from the earth head's suction. Earlier melee/special setups were unqualified
+and are superseded by this completed route. No native ending movie or full
+credits playback qualification is claimed.
 
 The reduced QA observer makes six RAM reads per sample instead of eleven,
 and caches the fixed profile's diagnostic address. Its fields match the old
@@ -140,7 +138,7 @@ SHA256 `ecbd879844d869e48aa68e73705afc926799c858a692f0d149f4ea8c520265cf`:
 | Cyber inner-door genuine air dash; actual closing, boss introduction and controls | `zero-native`, `native-final-1` | Both P2 hero choices pass, damage enabled. |
 | Dragoon first-visit introduction and native camera pan | `native-final-0`, `native-final-1` | Both heroes and both entry leaders pass; actual origins reach 5149. |
 | Web paired-door background parallax and fight recovery | `zero-native`, `native-final-1` | Both P2 hero choices pass; 19/20 crossing observations. |
-| Sigma upper phases, both final health pools and survivor ending handoff | `sigma-qualified-1` | P2 X passes; P2 Zero remains unqualified as explained above. |
+| Sigma upper phases, both final health pools and survivor ending handoff | `sigma-qualified-1`; later `sigma-release116/zero-native-fixed` | P2 X and P2 Zero pass on their separately recorded executables. |
 | Additional Web outer air dash baseline | `original-web-readonly`, `web-recorded-buttons-baseline` | Full original replay and corrected short fixture both reproduce the airborne death. Earlier short passes are excluded from regression evidence. |
 | Intro part 2 source group at 3167/3296 | `web-bee-approach` | P1 native allocation plus closer approach/drawing pass; no game fix claimed. |
 
@@ -168,6 +166,43 @@ dash opening/carry/closing checks pass, but the renderer diagnostic run hits
 the existing starvation watchdog during its boss introduction. It is not
 counted as a complete dash pass. Previous stable release qualification is
 retained; no watchdog or guest timing setting was weakened here.
+
+## Sigma white explosion and Zero survivor ending
+
+The owner requested a bounded white-explosion reproduction attempt, deferral
+only if it did not reproduce, and native Zero/P2 ending validation before the
+next stable release. The original runtime reproduces the rendering fault in
+native final-boss death phase2/6: the scene reaches its full white interval,
+but Zero remains fully colored in both panes. Six bright baseline captures
+retain roughly5,600 colored hero pixels. The report was reproduced and was
+therefore not deferred (`beads-eio.9.277`).
+
+Private sprite banks read the original character COLs, whereas native
+8002A484 applies lighting into the shared working palette at80141F70.
+Use that same clamped additive/subtractive RGB transform when defining
+private character and UI colors. Preserve the native per-CLUT enable mask,
+transparent zero and STP bit. The existing cache key already includes the
+exact colors, so lit frames and restored normal colors remain distinct.
+No guest palette, scene flag, lighting amount, physics or timing is changed.
+
+Corrected executable SHA256
+`dfa0aadf26de2b814daeedabb62308c4b57cdd611f593c6c6e4ffaa4425f6961`
+passes the full native Zero/P2 route: actual upper-form defeats, P1 death,
+native lower-room drop, actual attacks defeating both final health pools,
+victory text, camera release, real exit climbing and General dialogue,
+followed by mode11 ending admission. Zero stays32HP, P1 stays0HP and lives
+stay2. Stage/position/protection/one-HP fixtures prepare the route; no result
+or scene flags are set. The prior initial trial's retreat teleport was
+correctly rejected once victory locked the scene; a fresh corrected full
+run then passed end to end.
+
+Peak-white captures8..13 are entirely white in the gameplay area, with no
+visible hero pixels. Zero returns with normal colors afterward. The adjacent
+ramp frame contains two native blue explosion streaks outside the hero areas;
+these are not character bleed-through. Captures and frame observations are
+retained under `sigma-release116/zero-native-fixed`, with matched baseline
+and candidate pixel measurements and build identities. Unit vectors cover
+native RGB clamping, mixed subtraction, transparency and STP preservation.
 
 Private evidence is under
 `G:/Temp/Codex/psxrecomp/x4-playthrough115/`. Baseline reproductions are

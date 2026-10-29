@@ -24,6 +24,17 @@ static int original(const char *path) {
     printf("%s: %u original sprite frames decoded\n",path,frames);free(b);return 0;
 }
 int main(int argc,char **argv) {
+    const uint16_t dark[3]={0,0,0},white[3]={31,31u<<5,31u<<10};
+    const uint16_t light[3]={3,5u<<5,7u<<10};
+    CHECK(mmx4_coop_palette_lighting(0,white,0)==0);
+    CHECK(mmx4_coop_palette_lighting(0x8000,white,0)==0xFFFF);
+    CHECK(mmx4_coop_palette_lighting(0x0421,white,0)==0x7FFF);
+    CHECK(mmx4_coop_palette_lighting(0xFFFF,white,7)==0x8000);
+    CHECK(mmx4_coop_palette_lighting(0x1084,light,0)==0x2D27);
+    CHECK(mmx4_coop_palette_lighting(0x1084,light,7)==1);
+    CHECK(mmx4_coop_palette_lighting(0x1084,light,5)==0x0121);
+    for(unsigned color=0;color<=65535u;++color)
+        CHECK(mmx4_coop_palette_lighting((uint16_t)color,dark,0)==color);
     CHECK(mmx4_coop_character_palette_offset(0x7800)==0);
     CHECK(mmx4_coop_character_palette_offset(0x780D)==0x1A0);
     CHECK(mmx4_coop_character_palette_offset(0x7843)==0x260);

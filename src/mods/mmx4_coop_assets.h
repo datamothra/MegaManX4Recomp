@@ -6,6 +6,9 @@ typedef struct { const uint8_t *data; size_t size; uint32_t type; } Mmx4Asset;
 /* Character CLUT -> byte offset in the packed 256-wide native palette.
  * Other CLUTs retain the shared GPU palette (including animated effects). */
 int mmx4_coop_character_palette_offset(uint16_t clut);
+/* Native8002A484's clamped RGB additions/subtractions. Amounts retain their
+ * packed channel positions; bits0..2 select subtraction for R/G/B. */
+uint16_t mmx4_coop_palette_lighting(uint16_t color,const uint16_t amounts[3],unsigned subtract);
 /* Original SLUS-00561 ARC descriptor/sector format, loader 80013E68. */
 int mmx4_coop_arc_asset(const uint8_t *data, size_t size, unsigned member, Mmx4Asset *out);
 /* Original word LZ format at 80016FF4, also used by X6 at 80018BE0. */

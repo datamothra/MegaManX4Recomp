@@ -113,6 +113,8 @@ def sigma_survivor_victory(s):
     from coop_fortress_followup_scenario import cameras
     r = s.r
     admission = s.sigma_phase3_survivor()
+    if hasattr(s, 'sigma_final_ready'):
+        s.sigma_final_ready(admission)
     r.fixture(5, 2)
     r.fixture(7, 1, 0, 1)
     rows = []
@@ -136,19 +138,32 @@ def sigma_survivor_victory(s):
                 # Both live forms have their own HP. Prepare the currently
                 # selected form only; actual attacks must defeat each one.
                 r.fixture(6, bosses[0]['slot'], 1)
+            if bosses and not s.campaign and hasattr(s, 'sigma_final_attack'):
+                s.sigma_final_attack(bosses[0])
+                continue
             x, y = (bosses[0]['x'], bosses[0]['y']) if bosses else (0, 0)
             if not 1050 <= x <= 1420 or not 580 <= y <= 720:
                 time.sleep(.15)
                 continue
-            if not s.campaign and x < 1250:
-                # The earth head inhales toward lethal terrain at the left
-                # edge. Use Zero's native Ryuenjin from safe authored ground
-                # instead of placing a short melee swing beside its mouth.
-                r.teleport(1, 1192, 714)
-                r.input(0xef6f, 1)  # Left + Up + Triangle.
-                time.sleep(.18)
+            if not s.campaign:
+                # Use the native vulnerable rectangle, then retreat before
+                # the earth head's suction can pull Zero into its lethal pit.
+                # A new script lock means the actual defeating hit already
+                # committed the scene, so no further teleport is admissible.
+                boss = r.read(0x8013bed0 + bosses[0]['slot'] * 0x9c, 0x9c)
+                box = struct.unpack_from('<I', boss, 0x54)[0]
+                assert 0x80010000 <= box < 0x80200000
+                dx, dy, _, _ = struct.unpack('<bbBB', r.read(box, 4))
+                px = 1176 if x + dx < 1250 else 1320
+                r.teleport(1, px, min(714, int(y + dy) + 20))
+                r.input(0xff7f if x + dx < px else 0xffdf, 1)
+                time.sleep(.035)
+                r.input(0x7fff, 1)
+                time.sleep(.17)
                 r.release()
-                time.sleep(.25)
+                if not r.read(0x801721dc, 1)[0]:
+                    r.teleport(1, 1320, 714)
+                time.sleep(.22)
                 continue
             if s.campaign:
                 # X uses a native charged shot. Charge safely on the authored
